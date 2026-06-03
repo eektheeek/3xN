@@ -1,0 +1,120 @@
+{
+  "version": "analysis_result_v1",
+  "sessionId": "session-001",
+  "sessionDate": "2026-05-28",
+  "userId": "user-001",
+  "computedMetrics": {
+    "volumeLoad": {
+      "value": 12500.0,
+      "unit": "kg_reps",
+      "confidence": 0.98,
+      "applicability": "ready"
+    },
+    "density": {
+      "value": 208.33,
+      "unit": "kg_reps_per_min",
+      "confidence": 0.95,
+      "applicability": "ready"
+    },
+    "sessionTUT": {
+      "value": 780,
+      "unit": "sec",
+      "confidence": 0.9,
+      "applicability": "partial"
+    },
+    "monotony7d": {
+      "value": 1.35,
+      "unit": "ratio",
+      "confidence": 0.86,
+      "applicability": "ready"
+    },
+    "strain7d": {
+      "value": 7400,
+      "unit": "load_score",
+      "confidence": 0.86,
+      "applicability": "ready"
+    },
+    "acwr": {
+      "value": 1.07,
+      "unit": "ratio",
+      "confidence": 0.84,
+      "applicability": "ready"
+    },
+    "readinessScore": {
+      "value": 0.74,
+      "unit": "0_1",
+      "confidence": 0.82,
+      "applicability": "ready"
+    }
+  },
+  "exerciseMetrics": [
+    {
+      "exerciseId": "squat",
+      "exerciseName": "Back Squat",
+      "e1rm": {
+        "value": 142.5,
+        "unit": "kg",
+        "confidence": 0.89,
+        "applicability": "ready",
+        "formulaFamily": "ensemble",
+        "formulaBreakdown": {
+          "epley": 143.3,
+          "brzycki": 141.2,
+          "lombardi": 142.5
+        }
+      },
+      "volumeLoad": {
+        "value": 5400,
+        "unit": "kg_reps",
+        "confidence": 0.97,
+        "applicability": "ready"
+      },
+      "exerciseTUT": {
+        "value": 260,
+        "unit": "sec",
+        "confidence": 0.88,
+        "applicability": "partial"
+      }
+    }
+  ],
+  "trendPoints": [
+    {
+      "metric": "e1rm_squat",
+      "window": "28d",
+      "points": [
+        { "date": "2026-05-07", "value": 138.0 },
+        { "date": "2026-05-14", "value": 140.5 },
+        { "date": "2026-05-21", "value": 141.4 },
+        { "date": "2026-05-28", "value": 142.5 }
+      ]
+    }
+  ],
+  "recommendation": {
+    "action": "increase",
+    "targetWeightKg": 102.5,
+    "minWeightKg": 100.0,
+    "maxWeightKg": 105.0,
+    "targetPercent": 0.78,
+    "fatigueModifier": 0.97,
+    "readinessModifier": 0.99,
+    "deloadActive": false,
+    "reasonCodes": [
+      "readiness_ok",
+      "acwr_stable",
+      "percent_e1rm_policy"
+    ]
+  },
+  "intervalSummary": {
+    "protocolType": "tabata_like",
+    "restCompliance": 0.91,
+    "workCompliance": 0.94,
+    "actualDensity": 215.8
+  },
+  "intervalEvents": [
+    { "phase": "warmup", "durationSec": 120 },
+    { "phase": "work", "durationSec": 20 },
+    { "phase": "rest", "durationSec": 10 }
+  ],
+  "warnings": [],
+  "createdAt": "2026-05-28T18:00:01Z"
+}

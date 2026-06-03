@@ -1,0 +1,69 @@
+{
+  "version": "core_input_v1",
+  "rawTrainingLog": {
+    "sessionId": "session-001",
+    "userId": "user-001",
+    "startedAt": "2026-05-28T17:00:00Z",
+    "completedAt": "2026-05-28T18:00:00Z",
+    "sessionDurationSec": 3600,
+    "exercises": [
+      {
+        "exerciseId": "goblet-squat-warmup",
+        "name": "Goblet Squat (warm-up)",
+        "muscleGroup": "legs",
+        "blockType": "warmup",
+        "sets": [
+          { "setNumber": 1, "weightKg": 16.0, "reps": 12 },
+          { "setNumber": 2, "weightKg": 16.0, "reps": 12 },
+          { "setNumber": 3, "weightKg": 16.0, "reps": 12 }
+        ],
+        "intervalProtocol": {
+          "protocolId": "tabata_warmup_90_120",
+          "workSec": 90,
+          "restSec": 120,
+          "displayName": "Warm-up 1.5 min work / 2 min rest"
+        }
+      },
+      {
+        "exerciseId": "back-squat",
+        "name": "Back Squat",
+        "muscleGroup": "legs",
+        "blockType": "working",
+        "sets": [
+          { "setNumber": 1, "weightKg": 100.0, "reps": 5 },
+          { "setNumber": 2, "weightKg": 100.0, "reps": 5 },
+          { "setNumber": 3, "weightKg": 100.0, "reps": 5 }
+        ]
+      }
+    ]
+  },
+  "userMetrics": {
+    "age": 40,
+    "bodyWeightKg": 82.0,
+    "recoverySensitivity": 0.7,
+    "fatigueThreshold": 0.96,
+    "readinessThreshold": 0.75
+  },
+  "trainingConstraints": {
+    "sessionsPerWeek": 3
+  },
+  "progressionPolicy": {
+    "strategy": "percent_e1rm",
+    "targetPercent": 0.78,
+    "increaseStepKg": 2.5,
+    "decreaseStepKg": 2.5
+  },
+  "deloadPolicy": {
+    "strategy": "fixed_3_plus_1",
+    "loadWeeks": 3,
+    "deloadWeeks": 1,
+    "intensityDropPct": 0.10,
+    "volumeDropPct": 0.40,
+    "minRIR": 3
+  },
+  "trainingWeekIndex": 1,
+  "sessionModifiers": {
+    "fatigueModifier": 0.97,
+    "readinessModifier": 0.99
+  }
+}

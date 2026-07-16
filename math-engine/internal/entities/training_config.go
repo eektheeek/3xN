@@ -7,7 +7,7 @@ type TrainingConstraints struct {
 
 // ProgressionPolicy is a user-configurable preset for load progression.
 type ProgressionPolicy struct {
-	Strategy       string // preset id, e.g. "percent_e1rm", "rir_target"
+	Strategy       string // preset id, e.g. "linear_step", "rir_target"
 	TargetPercent  float64
 	IncreaseStepKg float64
 	DecreaseStepKg float64

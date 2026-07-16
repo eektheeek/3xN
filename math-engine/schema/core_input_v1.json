@@ -11,7 +11,7 @@
         "exerciseId": "goblet-squat-warmup",
         "name": "Goblet Squat (warm-up)",
         "muscleGroup": "legs",
-        "blockType": "warmup",
+        "exerciseType": "warmup",
         "sets": [
           { "setNumber": 1, "weightKg": 16.0, "reps": 12 },
           { "setNumber": 2, "weightKg": 16.0, "reps": 12 },
@@ -28,7 +28,11 @@
         "exerciseId": "back-squat",
         "name": "Back Squat",
         "muscleGroup": "legs",
-        "blockType": "working",
+        "exerciseType": "working",
+        "exerciseOutcome": {
+          "planCompleted": true,
+          "readyToProgress": true
+        },
         "sets": [
           { "setNumber": 1, "weightKg": 100.0, "reps": 5 },
           { "setNumber": 2, "weightKg": 100.0, "reps": 5 },
@@ -48,7 +52,7 @@
     "sessionsPerWeek": 3
   },
   "progressionPolicy": {
-    "strategy": "percent_e1rm",
+    "strategy": "linear_step",
     "targetPercent": 0.78,
     "increaseStepKg": 2.5,
     "decreaseStepKg": 2.5

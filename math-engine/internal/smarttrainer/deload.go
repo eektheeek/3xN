@@ -1,4 +1,4 @@
-package recommendation
+package smarttrainer
 
 import "github.com/eektheeek/dead-lift-project/math-engine/internal/entities"
 
@@ -16,7 +16,6 @@ func IsDeloadWeek(policy entities.DeloadPolicy, weekIndex int) bool {
 	return pos > load
 }
 
-// cycleLengths returns load and deload week counts for the policy preset.
 func cycleLengths(policy entities.DeloadPolicy) (loadWeeks, deloadWeeks int) {
 	switch policy.Strategy {
 	case "fixed_3_plus_1":

@@ -39,11 +39,20 @@ func WorkoutSession(sessionLog contracts.RawTrainingLog) (entities.WorkoutSessio
 				DisplayName: protoLog.DisplayName,
 			}
 		}
+		var outcome *entities.ExerciseOutcome
+		if exLog.ExerciseOutcome != nil {
+			o := exLog.ExerciseOutcome
+			outcome = &entities.ExerciseOutcome{
+				PlanCompleted:   o.PlanCompleted,
+				ReadyToProgress: o.ReadyToProgress,
+			}
+		}
 		exercises[i] = entities.Exercise{
 			ExerciseID:       exLog.ExerciseID,
 			Name:             exLog.Name,
 			MuscleGroup:      exLog.MuscleGroup,
-			BlockType:        exLog.BlockType,
+			ExerciseType:     exLog.ExerciseType,
+			ExerciseOutcome:  outcome,
 			Sets:             sets,
 			IntervalProtocol: intervalProto,
 		}

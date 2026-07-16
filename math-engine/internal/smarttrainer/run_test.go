@@ -1,4 +1,4 @@
-package analysis
+package smarttrainer
 
 import (
 	"encoding/json"
@@ -43,32 +43,30 @@ func TestRun_coreInputExample(t *testing.T) {
 	var warmup, working *contracts.ExerciseMetric
 	for i := range out.ExerciseMetrics {
 		em := &out.ExerciseMetrics[i]
-		switch em.BlockType {
-		case entities.BlockTypeWarmup:
+		switch em.ExerciseType {
+		case entities.ExerciseTypeWarmup:
 			warmup = em
-		case entities.BlockTypeWorking:
+		case entities.ExerciseTypeWorking:
 			working = em
 		}
 	}
 	if warmup == nil || working == nil {
-		t.Fatal("expected warmup and working blocks in output")
+		t.Fatal("expected warmup and working in output")
 	}
-	if warmup.Recommendation != nil {
-		t.Fatal("warmup must not have recommendation")
+	if warmup.SmartTrainer != nil {
+		t.Fatal("warmup must not have smartTrainer")
 	}
-	if warmup.E1RM != nil || warmup.VolumeLoad != nil {
-		t.Fatal("warmup must not have e1rm or volume metrics")
+	if working.SmartTrainer == nil {
+		t.Fatal("working must have smartTrainer")
 	}
-	if working.E1RM == nil || working.VolumeLoad == nil {
-		t.Fatal("working block must have e1rm and volume")
+	st := working.SmartTrainer
+	if st.SuggestedNextWeightKg != 102.5 || st.Action != "increase" {
+		t.Fatalf("smartTrainer = %.1f %q, want 102.5 increase", st.SuggestedNextWeightKg, st.Action)
 	}
-	if working.Recommendation == nil || working.Recommendation.Action == "" {
-		t.Fatal("working block must have recommendation")
+	if st.LastWorkingWeightKg != 100 {
+		t.Fatalf("last = %.1f, want 100", st.LastWorkingWeightKg)
 	}
-	if working.ExerciseID != "back-squat" {
-		t.Fatalf("working id = %q, want back-squat", working.ExerciseID)
-	}
-	if out.SessionContext.TrainingWeekIndex != 1 {
-		t.Fatalf("week index = %d, want 1", out.SessionContext.TrainingWeekIndex)
+	if st.Message == "" {
+		t.Fatal("expected message for UI")
 	}
 }

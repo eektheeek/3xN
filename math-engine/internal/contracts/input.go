@@ -31,9 +31,16 @@ type Exercise struct {
 	ExerciseID       string            `json:"exerciseId" validate:"required"`
 	Name             string            `json:"name" validate:"required"`
 	MuscleGroup      string            `json:"muscleGroup" validate:"required"`
-	BlockType        string            `json:"blockType" validate:"required,oneof=warmup working"`
+	ExerciseType     string            `json:"exerciseType" validate:"required,oneof=warmup working"`
+	ExerciseOutcome  *ExerciseOutcome  `json:"exerciseOutcome,omitempty" validate:"required_if=ExerciseType working"`
 	Sets             []SetEntry        `json:"sets" validate:"required,min=1,dive"`
 	IntervalProtocol *IntervalProtocol `json:"intervalProtocol,omitempty" validate:"omitempty"`
+}
+
+// ExerciseOutcome is UI-reported how the exercise went (smart trainer input).
+type ExerciseOutcome struct {
+	PlanCompleted   bool `json:"planCompleted"`
+	ReadyToProgress bool `json:"readyToProgress"`
 }
 
 type SetEntry struct {
@@ -63,7 +70,7 @@ type TrainingConstraints struct {
 
 type ProgressionPolicy struct {
 	// Strategy is a user-selected preset id (stored in profile/settings).
-	Strategy       string  `json:"strategy" validate:"required,oneof=percent_e1rm rir_target"`
+	Strategy       string  `json:"strategy" validate:"required,oneof=linear_step rir_target"`
 	TargetPercent  float64 `json:"targetPercent" validate:"gt=0,lte=1.1"`
 	IncreaseStepKg float64 `json:"increaseStepKg" validate:"gt=0"`
 	DecreaseStepKg float64 `json:"decreaseStepKg" validate:"gt=0"`

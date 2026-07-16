@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/eektheeek/dead-lift-project/math-engine/internal/analysis"
+	"github.com/eektheeek/dead-lift-project/math-engine/internal/smarttrainer"
 	"github.com/eektheeek/dead-lift-project/math-engine/internal/contracts"
 	"github.com/eektheeek/dead-lift-project/math-engine/internal/validate"
 )
@@ -88,7 +88,7 @@ func runAnalysis(args []string) int {
 		return 1
 	}
 
-	out, err := analysis.Run(in)
+	out, err := smarttrainer.Run(in)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "run-analysis: %v\n", err)
 		return 1

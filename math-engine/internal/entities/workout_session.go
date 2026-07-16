@@ -2,10 +2,10 @@ package entities
 
 import "time"
 
-// Exercise block types for stack ordering (warmup blocks skip load recommendations).
+// Exercise types in the session stack (warmup skips load suggestions).
 const (
-	BlockTypeWarmup  = "warmup"
-	BlockTypeWorking = "working"
+	ExerciseTypeWarmup  = "warmup"
+	ExerciseTypeWorking = "working"
 )
 
 // WorkoutSession is a normalized training session used by the math engine.
@@ -18,12 +18,19 @@ type WorkoutSession struct {
 	Exercises           []Exercise
 }
 
+// ExerciseOutcome is the caller-reported result after performing an exercise in the session.
+type ExerciseOutcome struct {
+	PlanCompleted   bool
+	ReadyToProgress bool
+}
+
 // Exercise describes a single movement inside one session.
 type Exercise struct {
 	ExerciseID       string
 	Name             string
 	MuscleGroup      string
-	BlockType        string // warmup | working
+	ExerciseType     string // warmup | working
+	ExerciseOutcome  *ExerciseOutcome
 	Sets             []SetEntry
 	IntervalProtocol *IntervalProtocol
 }

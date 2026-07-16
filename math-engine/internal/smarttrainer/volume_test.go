@@ -1,4 +1,4 @@
-package metrics
+package smarttrainer
 
 import (
 	"testing"
@@ -15,7 +15,7 @@ func TestVolumeLoad_exercise(t *testing.T) {
 		},
 	}
 	got := VolumeLoad(ex)
-	want := 100*5 + 100*5 + 50*10 // 1500
+	want := 100*5 + 100*5 + 50*10
 	if got != float64(want) {
 		t.Fatalf("VolumeLoad() = %v, want %v", got, want)
 	}
@@ -29,7 +29,7 @@ func TestSessionVolumeLoad(t *testing.T) {
 		},
 	}
 	got := SessionVolumeLoad(session)
-	want := 100*5 + 50*8 // 900
+	want := 100*5 + 50*8
 	if got != float64(want) {
 		t.Fatalf("SessionVolumeLoad() = %v, want %v", got, want)
 	}
@@ -38,8 +38,8 @@ func TestSessionVolumeLoad(t *testing.T) {
 func TestSessionWorkingVolumeLoad_skipsWarmup(t *testing.T) {
 	session := entities.WorkoutSession{
 		Exercises: []entities.Exercise{
-			{BlockType: entities.BlockTypeWarmup, Sets: []entities.SetEntry{{WeightKg: 16, Reps: 12}}},
-			{BlockType: entities.BlockTypeWorking, Sets: []entities.SetEntry{{WeightKg: 100, Reps: 5}}},
+			{ExerciseType: entities.ExerciseTypeWarmup, Sets: []entities.SetEntry{{WeightKg: 16, Reps: 12}}},
+			{ExerciseType: entities.ExerciseTypeWorking, Sets: []entities.SetEntry{{WeightKg: 100, Reps: 5}}},
 		},
 	}
 	got := SessionWorkingVolumeLoad(session)

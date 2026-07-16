@@ -20,8 +20,11 @@ func validInput() contracts.CoreInput {
 				ExerciseID:  "ex1",
 				Name:        "Squat",
 				MuscleGroup: "legs",
-				BlockType:   "working",
-				Sets:        []contracts.SetEntry{{SetNumber: 1, WeightKg: 100, Reps: 5}},
+				ExerciseType: "working",
+				ExerciseOutcome: &contracts.ExerciseOutcome{
+					PlanCompleted: true, ReadyToProgress: true,
+				},
+				Sets: []contracts.SetEntry{{SetNumber: 1, WeightKg: 100, Reps: 5}},
 			}},
 		},
 		UserMetrics: contracts.UserMetrics{
@@ -30,7 +33,7 @@ func validInput() contracts.CoreInput {
 		},
 		TrainingConstraints: contracts.TrainingConstraints{SessionsPerWeek: 3},
 		ProgressionPolicy: contracts.ProgressionPolicy{
-			Strategy: "percent_e1rm", TargetPercent: 0.78,
+			Strategy: "linear_step", TargetPercent: 0.78,
 			IncreaseStepKg: 2.5, DecreaseStepKg: 2.5,
 		},
 		DeloadPolicy: contracts.DeloadPolicy{
@@ -67,7 +70,8 @@ func TestValidate_invalid(t *testing.T) {
 		{"load weeks out of range", func(in *contracts.CoreInput) { in.DeloadPolicy.LoadWeeks = 0 }},
 		{"missing training week", func(in *contracts.CoreInput) { in.TrainingWeekIndex = 0 }},
 		{"fatigue out of range", func(in *contracts.CoreInput) { in.SessionModifiers.FatigueModifier = 1.5 }},
-		{"invalid blockType", func(in *contracts.CoreInput) { in.RawTrainingLog.Exercises[0].BlockType = "main" }},
+		{"invalid exerciseType", func(in *contracts.CoreInput) { in.RawTrainingLog.Exercises[0].ExerciseType = "main" }},
+		{"working without exerciseOutcome", func(in *contracts.CoreInput) { in.RawTrainingLog.Exercises[0].ExerciseOutcome = nil }},
 	}
 
 	for _, tc := range cases {

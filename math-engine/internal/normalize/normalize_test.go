@@ -14,7 +14,7 @@ func TestWorkoutSession_mapsExercises(t *testing.T) {
 		CompletedAt:        "2026-05-28T18:00:00Z",
 		SessionDurationSec: 3600,
 		Exercises: []contracts.Exercise{{
-			ExerciseID: "ex1", Name: "Squat", MuscleGroup: "legs", BlockType: "working",
+			ExerciseID: "ex1", Name: "Squat", MuscleGroup: "legs", ExerciseType: "working",
 			Sets: []contracts.SetEntry{{SetNumber: 1, WeightKg: 100, Reps: 5}},
 		}},
 	}
@@ -22,7 +22,7 @@ func TestWorkoutSession_mapsExercises(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(session.Exercises) != 1 || session.Exercises[0].BlockType != "working" || session.Exercises[0].Sets[0].WeightKg != 100 {
+	if len(session.Exercises) != 1 || session.Exercises[0].ExerciseType != "working" || session.Exercises[0].Sets[0].WeightKg != 100 {
 		t.Fatalf("unexpected session: %+v", session)
 	}
 }

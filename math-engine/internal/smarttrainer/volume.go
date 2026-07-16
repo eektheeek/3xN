@@ -1,4 +1,4 @@
-package metrics
+package smarttrainer
 
 import "github.com/eektheeek/dead-lift-project/math-engine/internal/entities"
 
@@ -11,7 +11,7 @@ func VolumeLoad(ex entities.Exercise) float64 {
 	return total
 }
 
-// SessionVolumeLoad returns total volume load across all exercises in a session.
+// SessionVolumeLoad returns total volume across all exercises (includes warmup).
 func SessionVolumeLoad(session entities.WorkoutSession) float64 {
 	var total float64
 	for _, ex := range session.Exercises {
@@ -20,11 +20,11 @@ func SessionVolumeLoad(session entities.WorkoutSession) float64 {
 	return total
 }
 
-// SessionWorkingVolumeLoad returns volume load for working blocks only (excludes warmup).
+// SessionWorkingVolumeLoad returns volume for working blocks only.
 func SessionWorkingVolumeLoad(session entities.WorkoutSession) float64 {
 	var total float64
 	for _, ex := range session.Exercises {
-		if ex.BlockType != entities.BlockTypeWorking {
+		if ex.ExerciseType != entities.ExerciseTypeWorking {
 			continue
 		}
 		total += VolumeLoad(ex)

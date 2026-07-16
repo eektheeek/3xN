@@ -1,0 +1,48 @@
+package models
+
+// Exercise is a catalog movement the user can log.
+type Exercise struct {
+	ID             string          `json:"id"`
+	Name           string          `json:"name"`
+	MuscleGroup    string          `json:"muscleGroup"`
+	SupportsAssist bool            `json:"supportsAssist"`
+	CreatedAt      string          `json:"createdAt"`
+	Target         *ExerciseTarget `json:"target,omitempty"`
+}
+
+// ExerciseTarget is the current goal for an exercise.
+type ExerciseTarget struct {
+	ExerciseID string  `json:"exerciseId"`
+	TargetSets int     `json:"sets"`
+	TargetReps int     `json:"reps"`
+	WeightKg   float64 `json:"weightKg"`
+	AssistKg   float64 `json:"assistKg"` // 0 when unused; only meaningful if exercise.supportsAssist
+}
+
+// WorkoutSession is one gym visit / training day.
+type WorkoutSession struct {
+	ID          string                   `json:"id"`
+	PerformedAt string                   `json:"performedAt"`
+	IsDeload    bool                     `json:"isDeload"`
+	CreatedAt   string                   `json:"createdAt"`
+	Exercises   []WorkoutSessionExercise `json:"exercises,omitempty"`
+}
+
+// WorkoutSessionExercise is one exercise block inside a workout session.
+type WorkoutSessionExercise struct {
+	ID               string `json:"id"`
+	WorkoutSessionID string `json:"workoutSessionId"`
+	ExerciseID       string `json:"exerciseId"`
+	Position         int    `json:"position"`
+	Sets             []Set  `json:"sets,omitempty"`
+}
+
+// Set is one performed set.
+type Set struct {
+	ID                       string  `json:"id"`
+	WorkoutSessionExerciseID string  `json:"workoutSessionExerciseId"`
+	SetNumber                int     `json:"setNumber"`
+	Reps                     int     `json:"reps"`
+	WeightKg                 float64 `json:"weightKg"`
+	AssistKg                 float64 `json:"assistKg"` // 0 when unused
+}

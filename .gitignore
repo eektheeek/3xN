@@ -9,3 +9,10 @@
 .env.development
 .env.test
 .env.production
+
+# Local SQLite diary data
+diary-api/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

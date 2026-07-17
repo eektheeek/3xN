@@ -13,6 +13,7 @@ func NewMux(api *API) *http.ServeMux {
 	mux.HandleFunc("POST /v1/exercises", api.CreateExercise)
 	mux.HandleFunc("GET /v1/exercises", api.ListExercises)
 	mux.HandleFunc("GET /v1/exercises/{id}", api.GetExercise)
+	mux.HandleFunc("PUT /v1/exercises/{id}", api.UpdateExercise)
 	mux.HandleFunc("PUT /v1/exercises/{id}/target", api.SetTarget)
 
 	mux.HandleFunc("POST /v1/workout-sessions", api.CreateWorkoutSession)

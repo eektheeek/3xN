@@ -38,12 +38,23 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 		t.Fatalf("expected target on exercise, got %+v", got)
 	}
 
+	updated, err := repo.UpdateExercise(ex.ID, "Pull-up", "back", false)
+	if err != nil {
+		t.Fatalf("update exercise: %v", err)
+	}
+	if updated.Name != "Pull-up" || updated.SupportsAssist {
+		t.Fatalf("unexpected updated exercise: %+v", updated)
+	}
+	if updated.Target == nil || updated.Target.AssistKg != 0 {
+		t.Fatalf("expected assist cleared on target, got %+v", updated.Target)
+	}
+
 	list, err := repo.ListExercises()
 	if err != nil {
 		t.Fatalf("list exercises: %v", err)
 	}
-	if len(list) != 1 || list[0].Target == nil || list[0].Target.AssistKg != 25 {
-		t.Fatalf("expected target on listed exercise, got %+v", list)
+	if len(list) != 1 || list[0].Target == nil || list[0].Target.AssistKg != 0 {
+		t.Fatalf("expected cleared assist on listed exercise, got %+v", list)
 	}
 
 	session, err := repo.StartWorkoutSession("2026-07-16T18:00:00Z", false)
@@ -99,7 +110,7 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 	if loaded.ID != session.ID || len(loaded.Exercises) != 1 || len(loaded.Exercises[0].Sets) != 1 {
 		t.Fatalf("unexpected loaded session: %+v", loaded)
 	}
-	if loaded.Exercises[0].ExerciseName != "Wide grip pull-up" {
+	if loaded.Exercises[0].ExerciseName != "Pull-up" {
 		t.Fatalf("expected exercise name on session exercise, got %+v", loaded.Exercises[0])
 	}
 

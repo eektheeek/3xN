@@ -7,6 +7,7 @@ import type {
   SaveSessionExerciseBody,
   SetTargetBody,
   StartWorkoutSessionBody,
+  UpdateExerciseBody,
   WorkoutPlan,
   WorkoutSession,
   WorkoutSessionExercise,
@@ -55,6 +56,8 @@ export const api = {
   getExercise: (id: string) => request<Exercise>(`/v1/exercises/${id}`),
   createExercise: (body: CreateExerciseBody) =>
     request<Exercise>('/v1/exercises', { method: 'POST', body: JSON.stringify(body) }),
+  updateExercise: (id: string, body: UpdateExerciseBody) =>
+    request<Exercise>(`/v1/exercises/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   setTarget: (id: string, body: SetTargetBody) =>
     request<ExerciseTarget>(`/v1/exercises/${id}/target`, {
       method: 'PUT',

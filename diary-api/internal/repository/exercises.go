@@ -31,6 +31,42 @@ func (r *Repository) CreateExercise(name, muscleGroup string, supportsAssist boo
 	return ex, nil
 }
 
+// UpdateExercise updates catalog fields for an existing exercise.
+// When supportsAssist is turned off, assistKg on the target is cleared.
+func (r *Repository) UpdateExercise(id, name, muscleGroup string, supportsAssist bool) (models.Exercise, error) {
+	if name == "" {
+		return models.Exercise{}, fmt.Errorf("name is required")
+	}
+
+	res, err := r.db.Exec(
+		`UPDATE exercises
+		 SET name = ?, muscle_group = ?, supports_assist = ?
+		 WHERE id = ?`,
+		name, muscleGroup, boolToInt(supportsAssist), id,
+	)
+	if err != nil {
+		return models.Exercise{}, fmt.Errorf("update exercise: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return models.Exercise{}, fmt.Errorf("update exercise rows: %w", err)
+	}
+	if n == 0 {
+		return models.Exercise{}, ErrNotFound
+	}
+
+	if !supportsAssist {
+		if _, err := r.db.Exec(
+			`UPDATE exercise_targets SET assist_kg = 0 WHERE exercise_id = ?`,
+			id,
+		); err != nil {
+			return models.Exercise{}, fmt.Errorf("clear assist on target: %w", err)
+		}
+	}
+
+	return r.GetExercise(id)
+}
+
 // ListExercises returns all exercises with targets when present.
 func (r *Repository) ListExercises() ([]models.Exercise, error) {
 	rows, err := r.db.Query(

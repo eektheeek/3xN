@@ -52,6 +52,43 @@ func (a *API) CreateExercise(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, ex)
 }
 
+type updateExerciseRequest struct {
+	Name           string `json:"name"`
+	MuscleGroup    string `json:"muscleGroup"`
+	SupportsAssist bool   `json:"supportsAssist"`
+}
+
+// UpdateExercise handles PUT /v1/exercises/{id}.
+func (a *API) UpdateExercise(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+
+	var req updateExerciseRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	ex, err := a.repo.UpdateExercise(id, req.Name, strings.TrimSpace(req.MuscleGroup), req.SupportsAssist)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "exercise not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update exercise")
+		return
+	}
+	writeJSON(w, http.StatusOK, ex)
+}
+
 // ListExercises handles GET /v1/exercises.
 func (a *API) ListExercises(w http.ResponseWriter, r *http.Request) {
 	list, err := a.repo.ListExercises()

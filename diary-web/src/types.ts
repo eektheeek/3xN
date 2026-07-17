@@ -75,6 +75,8 @@ export interface CreateExerciseBody {
   supportsAssist?: boolean;
 }
 
+export type UpdateExerciseBody = CreateExerciseBody;
+
 export interface SetTargetBody {
   sets: number;
   reps: number;

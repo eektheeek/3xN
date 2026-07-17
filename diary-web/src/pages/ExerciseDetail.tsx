@@ -14,7 +14,9 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [showTargetForm, setShowTargetForm] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [savingMeta, setSavingMeta] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -45,6 +47,28 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
     }
   };
 
+  const handleUpdateMeta = async (e: Event) => {
+    e.preventDefault();
+    if (!id) return;
+    const form = e.target as HTMLFormElement;
+    const data = new FormData(form);
+    setSavingMeta(true);
+    setError('');
+    try {
+      const ex = await api.updateExercise(id, {
+        name: String(data.get('name')).trim(),
+        muscleGroup: String(data.get('muscleGroup') ?? '').trim(),
+        supportsAssist: data.get('supportsAssist') === 'on',
+      });
+      setExercise(ex);
+      setEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить');
+    } finally {
+      setSavingMeta(false);
+    }
+  };
+
   if (!id) {
     return (
       <div class="page">
@@ -67,7 +91,47 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
 
       {exercise && (
         <>
-          {exercise.muscleGroup && <p class="muted">{exercise.muscleGroup}</p>}
+          {!editing && (
+            <section class="card">
+              <h2 class="card__title">Упражнение</h2>
+              <p style="margin:0 0 0.35rem">
+                <strong>{exercise.name}</strong>
+              </p>
+              {exercise.muscleGroup && <p class="muted">{exercise.muscleGroup}</p>}
+              <p class="muted" style="margin-bottom:0.75rem">
+                {exercise.supportsAssist ? 'С резинкой (assist)' : 'Классическое (без assist)'}
+              </p>
+              <button type="button" class="btn btn-secondary" onClick={() => setEditing(true)}>
+                Редактировать
+              </button>
+            </section>
+          )}
+
+          {editing && (
+            <form class="card form" onSubmit={handleUpdateMeta}>
+              <h2 class="card__title">Редактировать</h2>
+              <label class="field">
+                <span>Название</span>
+                <input name="name" type="text" required defaultValue={exercise.name} />
+              </label>
+              <label class="field">
+                <span>Группа мышц</span>
+                <input name="muscleGroup" type="text" defaultValue={exercise.muscleGroup} placeholder="спина" />
+              </label>
+              <label class="field field--checkbox">
+                <input name="supportsAssist" type="checkbox" defaultChecked={exercise.supportsAssist} />
+                <span>С резинкой (assist)</span>
+              </label>
+              <div class="actions" style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <button type="submit" class="btn btn-primary" disabled={savingMeta}>
+                  {savingMeta ? 'Сохранение…' : 'Сохранить'}
+                </button>
+                <button type="button" class="btn btn-ghost" disabled={savingMeta} onClick={() => setEditing(false)}>
+                  Отмена
+                </button>
+              </div>
+            </form>
+          )}
 
           {exercise.target && !showTargetForm && (
             <section class="card">

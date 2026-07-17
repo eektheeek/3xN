@@ -84,6 +84,14 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 		t.Fatalf("unexpected summary: %+v", summaries[0])
 	}
 
+	finished, err := repo.FinishWorkoutSession(session.ID, 3725)
+	if err != nil {
+		t.Fatalf("finish workout session: %v", err)
+	}
+	if finished.DurationSec != 3725 || finished.StartedAt == "" {
+		t.Fatalf("unexpected finished session: %+v", finished)
+	}
+
 	loaded, err := repo.GetWorkoutSession(session.ID)
 	if err != nil {
 		t.Fatalf("get workout session: %v", err)

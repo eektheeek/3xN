@@ -133,6 +133,40 @@ func (a *API) StartWorkoutSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, session)
 }
 
+type finishWorkoutSessionRequest struct {
+	DurationSec int `json:"durationSec"`
+}
+
+// FinishWorkoutSession handles POST /v1/workout-sessions/{id}/finish.
+func (a *API) FinishWorkoutSession(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+
+	var req finishWorkoutSessionRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if req.DurationSec < 0 {
+		writeError(w, http.StatusBadRequest, "durationSec must be >= 0")
+		return
+	}
+
+	session, err := a.repo.FinishWorkoutSession(id, req.DurationSec)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "workout session not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to finish workout session")
+		return
+	}
+	writeJSON(w, http.StatusOK, session)
+}
+
 type saveSessionExerciseRequest struct {
 	Position int                `json:"position"`
 	Sets     []createSetRequest `json:"sets"`

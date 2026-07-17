@@ -47,18 +47,22 @@ func (r *Repository) CreateWorkoutSession(in CreateWorkoutSessionInput) (models.
 	session := models.WorkoutSession{
 		ID:          uuid.NewString(),
 		PerformedAt: in.PerformedAt,
+		StartedAt:   in.PerformedAt,
+		DurationSec: 0,
 		IsDeload:    in.IsDeload,
 		CreatedAt:   time.Now().UTC().Format(time.RFC3339),
 		Exercises:   make([]models.WorkoutSessionExercise, 0, len(in.Exercises)),
 	}
 	if session.PerformedAt == "" {
 		session.PerformedAt = session.CreatedAt
+		session.StartedAt = session.CreatedAt
 	}
 
 	_, err = tx.Exec(
-		`INSERT INTO workout_sessions (id, performed_at, is_deload, created_at)
-		 VALUES (?, ?, ?, ?)`,
+		`INSERT INTO workout_sessions (id, performed_at, is_deload, created_at, started_at, duration_sec)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
 		session.ID, session.PerformedAt, boolToInt(session.IsDeload), session.CreatedAt,
+		session.StartedAt, session.DurationSec,
 	)
 	if err != nil {
 		return models.WorkoutSession{}, fmt.Errorf("insert workout session: %w", err)
@@ -129,26 +133,53 @@ func (r *Repository) CreateWorkoutSession(in CreateWorkoutSessionInput) (models.
 
 // StartWorkoutSession creates an empty session for incremental logging.
 func (r *Repository) StartWorkoutSession(performedAt string, isDeload bool) (models.WorkoutSession, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
 	session := models.WorkoutSession{
 		ID:          uuid.NewString(),
 		PerformedAt: performedAt,
+		StartedAt:   now,
+		DurationSec: 0,
 		IsDeload:    isDeload,
-		CreatedAt:   time.Now().UTC().Format(time.RFC3339),
+		CreatedAt:   now,
 		Exercises:   []models.WorkoutSessionExercise{},
 	}
 	if session.PerformedAt == "" {
-		session.PerformedAt = session.CreatedAt
+		session.PerformedAt = now
 	}
 
 	_, err := r.db.Exec(
-		`INSERT INTO workout_sessions (id, performed_at, is_deload, created_at)
-		 VALUES (?, ?, ?, ?)`,
+		`INSERT INTO workout_sessions (id, performed_at, is_deload, created_at, started_at, duration_sec)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
 		session.ID, session.PerformedAt, boolToInt(session.IsDeload), session.CreatedAt,
+		session.StartedAt, session.DurationSec,
 	)
 	if err != nil {
 		return models.WorkoutSession{}, fmt.Errorf("insert workout session: %w", err)
 	}
 	return session, nil
+}
+
+// FinishWorkoutSession stores total duration for a session.
+func (r *Repository) FinishWorkoutSession(sessionID string, durationSec int) (models.WorkoutSession, error) {
+	if durationSec < 0 {
+		return models.WorkoutSession{}, fmt.Errorf("durationSec must be >= 0")
+	}
+
+	res, err := r.db.Exec(
+		`UPDATE workout_sessions SET duration_sec = ? WHERE id = ?`,
+		durationSec, sessionID,
+	)
+	if err != nil {
+		return models.WorkoutSession{}, fmt.Errorf("finish workout session: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return models.WorkoutSession{}, fmt.Errorf("finish workout session rows: %w", err)
+	}
+	if n == 0 {
+		return models.WorkoutSession{}, ErrNotFound
+	}
+	return r.GetWorkoutSession(sessionID)
 }
 
 // SaveSessionExercise upserts one exercise block inside an existing session.
@@ -261,7 +292,7 @@ func (r *Repository) SaveSessionExercise(
 // ListWorkoutSessions returns completed sessions (with at least one exercise), newest first.
 func (r *Repository) ListWorkoutSessions() ([]models.WorkoutSessionSummary, error) {
 	rows, err := r.db.Query(
-		`SELECT ws.id, ws.performed_at, ws.is_deload, ws.created_at,
+		`SELECT ws.id, ws.performed_at, ws.is_deload, ws.created_at, ws.duration_sec,
 		        COUNT(wse.id) AS exercise_count,
 		        GROUP_CONCAT(e.name, char(31) ORDER BY wse.position) AS exercise_names
 		 FROM workout_sessions ws
@@ -280,7 +311,10 @@ func (r *Repository) ListWorkoutSessions() ([]models.WorkoutSessionSummary, erro
 		var s models.WorkoutSessionSummary
 		var deload int
 		var namesRaw sql.NullString
-		if err := rows.Scan(&s.ID, &s.PerformedAt, &deload, &s.CreatedAt, &s.ExerciseCount, &namesRaw); err != nil {
+		if err := rows.Scan(
+			&s.ID, &s.PerformedAt, &deload, &s.CreatedAt, &s.DurationSec,
+			&s.ExerciseCount, &namesRaw,
+		); err != nil {
 			return nil, fmt.Errorf("scan workout session summary: %w", err)
 		}
 		s.IsDeload = deload == 1
@@ -304,11 +338,15 @@ func (r *Repository) ListWorkoutSessions() ([]models.WorkoutSessionSummary, erro
 func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error) {
 	var session models.WorkoutSession
 	var deload int
+	var startedAt sql.NullString
 	err := r.db.QueryRow(
-		`SELECT id, performed_at, is_deload, created_at
+		`SELECT id, performed_at, is_deload, created_at, started_at, duration_sec
 		 FROM workout_sessions WHERE id = ?`,
 		id,
-	).Scan(&session.ID, &session.PerformedAt, &deload, &session.CreatedAt)
+	).Scan(
+		&session.ID, &session.PerformedAt, &deload, &session.CreatedAt,
+		&startedAt, &session.DurationSec,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.WorkoutSession{}, ErrNotFound
 	}
@@ -316,6 +354,9 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 		return models.WorkoutSession{}, fmt.Errorf("get workout session: %w", err)
 	}
 	session.IsDeload = deload == 1
+	if startedAt.Valid {
+		session.StartedAt = startedAt.String
+	}
 
 	exRows, err := r.db.Query(
 		`SELECT wse.id, wse.workout_session_id, wse.exercise_id, wse.position,

@@ -3,7 +3,7 @@ import type { RoutableProps } from 'preact-router';
 import { api } from '../api/client';
 import type { Exercise, WorkoutSession } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { formatSessionDateTime } from '../utils/dates';
+import { formatSessionDateTime, formatDurationLabel } from '../utils/dates';
 import { formatExerciseStats } from '../utils/workoutStats';
 
 interface DiarySessionDetailProps extends RoutableProps {
@@ -57,6 +57,9 @@ export function DiarySessionDetail({ id }: DiarySessionDetailProps) {
       {session && (
         <>
           <p class="diary-detail__date">{formatSessionDateTime(session.performedAt)}</p>
+          {session.durationSec > 0 && (
+            <p class="diary-detail__duration">Длительность: {formatDurationLabel(session.durationSec)}</p>
+          )}
           {session.isDeload && <span class="badge badge--muted">Разгрузка</span>}
 
           {(session.exercises ?? []).map((block) => {

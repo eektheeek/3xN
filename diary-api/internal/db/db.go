@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -63,8 +64,17 @@ func migrate(sqlDB *sql.DB, migrationsDir string) error {
 			return fmt.Errorf("read migration %s: %w", name, err)
 		}
 		if _, err := sqlDB.Exec(string(body)); err != nil {
-			return fmt.Errorf("apply migration %s: %w", name, err)
+			// Migrations are re-applied on every Open; ignore idempotent ALTER failures.
+			if !isIgnorableMigrationError(err) {
+				return fmt.Errorf("apply migration %s: %w", name, err)
+			}
 		}
 	}
 	return nil
+}
+
+func isIgnorableMigrationError(err error) bool {
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate column name") ||
+		strings.Contains(msg, "already exists")
 }

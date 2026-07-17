@@ -5,6 +5,7 @@ import type { ActiveWorkoutDraft, CreateSetBody, Exercise } from '../types';
 import { activeWorkoutKey } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { SetRow } from '../components/SetRow';
+import { formatDuration } from '../utils/dates';
 import { formatExerciseStats } from '../utils/workoutStats';
 
 interface WorkoutPlanStartProps extends RoutableProps {
@@ -60,16 +61,28 @@ function clearDraft(planId: string) {
   localStorage.removeItem(activeWorkoutKey(planId));
 }
 
+function elapsedSec(startedAt: string): number {
+  const t = Date.parse(startedAt);
+  if (Number.isNaN(t)) return 0;
+  return Math.max(0, Math.floor((Date.now() - t) / 1000));
+}
+
 export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [planName, setPlanName] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [startedAt, setStartedAt] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const [savedExerciseIds, setSavedExerciseIds] = useState<Set<string>>(new Set());
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [finalDurationSec, setFinalDurationSec] = useState(0);
+
+  const started = Boolean(sessionId && startedAt);
 
   useEffect(() => {
     if (!id) return;
@@ -79,25 +92,36 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
         setPlanName(plan.name);
 
         const draft = readDraft(id);
-        let activeSessionId = draft?.sessionId ?? null;
+        let activeSessionId = draft?.sessionId || null;
+        let activeStartedAt = draft?.startedAt || null;
         let savedIds = new Set(draft?.savedExerciseIds ?? []);
         let sessionExercises: { exerciseId: string; sets?: CreateSetBody[] }[] = [];
 
         if (activeSessionId) {
           try {
             const session = await api.getWorkoutSession(activeSessionId);
-            sessionExercises = (session.exercises ?? []).map((ex) => ({
-              exerciseId: ex.exerciseId,
-              sets: ex.sets?.map((s) => ({
-                setNumber: s.setNumber,
-                reps: s.reps,
-                weightKg: s.weightKg,
-                assistKg: s.assistKg,
-              })),
-            }));
-            savedIds = new Set(sessionExercises.map((ex) => ex.exerciseId));
+            if (session.durationSec > 0) {
+              // Already finished — drop draft and start fresh.
+              clearDraft(id);
+              activeSessionId = null;
+              activeStartedAt = null;
+              savedIds = new Set();
+            } else {
+              sessionExercises = (session.exercises ?? []).map((ex) => ({
+                exerciseId: ex.exerciseId,
+                sets: ex.sets?.map((s) => ({
+                  setNumber: s.setNumber,
+                  reps: s.reps,
+                  weightKg: s.weightKg,
+                  assistKg: s.assistKg,
+                })),
+              }));
+              savedIds = new Set(sessionExercises.map((ex) => ex.exerciseId));
+              activeStartedAt = session.startedAt || activeStartedAt;
+            }
           } catch {
             activeSessionId = null;
+            activeStartedAt = null;
             savedIds = new Set();
             sessionExercises = [];
           }
@@ -120,8 +144,12 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
         }
 
         setSessionId(activeSessionId);
+        setStartedAt(activeStartedAt);
         setSavedExerciseIds(savedIds);
         setLogs(items);
+        if (activeStartedAt) {
+          setElapsed(elapsedSec(activeStartedAt));
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Ошибка загрузки');
       } finally {
@@ -131,10 +159,11 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
   }, [id]);
 
   useEffect(() => {
-    if (!id || loading || logs.length === 0) return;
+    if (!id || loading || !started || !sessionId || !startedAt) return;
     const draft: ActiveWorkoutDraft = {
-      sessionId: sessionId ?? '',
+      sessionId,
       planId: id,
+      startedAt,
       savedExerciseIds: [...savedExerciseIds],
       logs: logs.map((log) => ({
         exerciseId: log.exercise.id,
@@ -142,7 +171,16 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
       })),
     };
     writeDraft(id, draft);
-  }, [id, loading, logs, sessionId, savedExerciseIds]);
+  }, [id, loading, logs, sessionId, startedAt, savedExerciseIds, started]);
+
+  useEffect(() => {
+    if (!startedAt || done) return;
+    setElapsed(elapsedSec(startedAt));
+    const timer = window.setInterval(() => {
+      setElapsed(elapsedSec(startedAt));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAt, done]);
 
   const updateSets = (index: number, sets: CreateSetBody[]) => {
     const copy = [...logs];
@@ -155,24 +193,32 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
     });
   };
 
-  const ensureSession = async (): Promise<string> => {
-    if (sessionId) return sessionId;
-    const session = await api.startWorkoutSession({
-      performedAt: new Date().toISOString(),
-      isDeload: false,
-    });
-    setSessionId(session.id);
-    return session.id;
+  const handleStart = async () => {
+    setStarting(true);
+    setError('');
+    try {
+      const session = await api.startWorkoutSession({
+        performedAt: new Date().toISOString(),
+        isDeload: false,
+      });
+      const start = session.startedAt || new Date().toISOString();
+      setSessionId(session.id);
+      setStartedAt(start);
+      setElapsed(0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось начать');
+    } finally {
+      setStarting(false);
+    }
   };
 
   const saveExercise = async (logIndex: number) => {
-    if (!id) return;
+    if (!sessionId) return;
     const log = logs[logIndex];
     setSavingIndex(logIndex);
     setError('');
     try {
-      const sid = await ensureSession();
-      await api.saveSessionExercise(sid, log.exercise.id, {
+      await api.saveSessionExercise(sessionId, log.exercise.id, {
         position: logIndex + 1,
         sets: log.sets,
       });
@@ -186,21 +232,23 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
-    if (!id) return;
+    if (!id || !sessionId || !startedAt) return;
     setSubmitting(true);
     setError('');
     try {
-      const sid = await ensureSession();
       for (let i = 0; i < logs.length; i++) {
         const log = logs[i];
         if (!savedExerciseIds.has(log.exercise.id)) {
-          await api.saveSessionExercise(sid, log.exercise.id, {
+          await api.saveSessionExercise(sessionId, log.exercise.id, {
             position: i + 1,
             sets: log.sets,
           });
         }
       }
+      const durationSec = elapsedSec(startedAt);
+      await api.finishWorkoutSession(sessionId, { durationSec });
       clearDraft(id);
+      setFinalDurationSec(durationSec);
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить');
@@ -222,8 +270,14 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
       <div class="page page--center">
         <h1>Готово</h1>
         <p class="muted">Тренировка «{planName}» сохранена.</p>
+        {finalDurationSec > 0 && (
+          <p class="muted">Время: {formatDuration(finalDurationSec)}</p>
+        )}
         <a href="/" class="btn btn-primary">
           На главную
+        </a>
+        <a href="/diary" class="btn btn-secondary">
+          В дневник
         </a>
       </div>
     );
@@ -241,63 +295,84 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
       <ErrorBanner message={error} />
       {loading && <p class="muted">Загрузка…</p>}
 
-      {!loading && (
-        <form class="form" onSubmit={handleSubmit}>
-          {logs.map((log, logIndex) => {
-            const isSaved = savedExerciseIds.has(log.exercise.id);
-            const isSaving = savingIndex === logIndex;
-            return (
-              <section key={log.exercise.id} class="exercise-block">
-                <div class="exercise-block__head">
-                  <h3>{log.exercise.name}</h3>
-                  {isSaved && <span class="badge badge--ok">Сохранено</span>}
-                </div>
-                {log.exercise.target && (
-                  <p class="muted exercise-block__goal">
-                    Цель: {log.exercise.target.sets}×{log.exercise.target.reps}
-                    {log.exercise.target.assistKg > 0
-                      ? ` · резинка ${log.exercise.target.assistKg} кг`
-                      : ''}
-                  </p>
-                )}
-                {!log.exercise.target && (
-                  <p class="muted exercise-block__goal">
-                    <a href={`/exercises/${log.exercise.id}`}>Задать цель</a>
-                  </p>
-                )}
-                <p class="exercise-block__stats">
-                  {formatExerciseStats(log.sets, !log.exercise.supportsAssist)}
-                </p>
-                {log.sets.map((s, setIndex) => (
-                  <SetRow
-                    key={s.setNumber}
-                    setNumber={s.setNumber}
-                    value={s}
-                    supportsAssist={log.exercise.supportsAssist}
-                    targetReps={log.exercise.target?.reps}
-                    targetAssistKg={log.exercise.target?.assistKg}
-                    onChange={(next) => {
-                      const sets = [...log.sets];
-                      sets[setIndex] = next;
-                      updateSets(logIndex, sets);
-                    }}
-                  />
-                ))}
-                <button
-                  type="button"
-                  class="btn btn-secondary btn-block"
-                  disabled={isSaving}
-                  onClick={() => void saveExercise(logIndex)}
-                >
-                  {isSaving ? 'Сохранение…' : isSaved ? 'Обновить результат' : 'Сохранить результат'}
-                </button>
-              </section>
-            );
-          })}
-          <button type="submit" class="btn btn-primary btn-block" disabled={submitting || logs.length === 0}>
-            {submitting ? 'Сохранение…' : 'Завершить тренировку'}
+      {!loading && !started && (
+        <div class="page--center" style="min-height:40dvh">
+          <p class="muted">Нажми «Начать», когда готов — пойдёт таймер тренировки.</p>
+          <button
+            type="button"
+            class="btn btn-primary btn-block"
+            disabled={starting || logs.length === 0}
+            onClick={() => void handleStart()}
+          >
+            {starting ? 'Старт…' : 'Начать тренировку'}
           </button>
-        </form>
+        </div>
+      )}
+
+      {!loading && started && (
+        <>
+          <div class="workout-timer" aria-live="polite">
+            <span class="workout-timer__label">Время</span>
+            <span class="workout-timer__value">{formatDuration(elapsed)}</span>
+          </div>
+
+          <form class="form" onSubmit={handleSubmit}>
+            {logs.map((log, logIndex) => {
+              const isSaved = savedExerciseIds.has(log.exercise.id);
+              const isSaving = savingIndex === logIndex;
+              return (
+                <section key={log.exercise.id} class="exercise-block">
+                  <div class="exercise-block__head">
+                    <h3>{log.exercise.name}</h3>
+                    {isSaved && <span class="badge badge--ok">Сохранено</span>}
+                  </div>
+                  {log.exercise.target && (
+                    <p class="muted exercise-block__goal">
+                      Цель: {log.exercise.target.sets}×{log.exercise.target.reps}
+                      {log.exercise.target.assistKg > 0
+                        ? ` · резинка ${log.exercise.target.assistKg} кг`
+                        : ''}
+                    </p>
+                  )}
+                  {!log.exercise.target && (
+                    <p class="muted exercise-block__goal">
+                      <a href={`/exercises/${log.exercise.id}`}>Задать цель</a>
+                    </p>
+                  )}
+                  <p class="exercise-block__stats">
+                    {formatExerciseStats(log.sets, !log.exercise.supportsAssist)}
+                  </p>
+                  {log.sets.map((s, setIndex) => (
+                    <SetRow
+                      key={s.setNumber}
+                      setNumber={s.setNumber}
+                      value={s}
+                      supportsAssist={log.exercise.supportsAssist}
+                      targetReps={log.exercise.target?.reps}
+                      targetAssistKg={log.exercise.target?.assistKg}
+                      onChange={(next) => {
+                        const sets = [...log.sets];
+                        sets[setIndex] = next;
+                        updateSets(logIndex, sets);
+                      }}
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-block"
+                    disabled={isSaving}
+                    onClick={() => void saveExercise(logIndex)}
+                  >
+                    {isSaving ? 'Сохранение…' : isSaved ? 'Обновить результат' : 'Сохранить результат'}
+                  </button>
+                </section>
+              );
+            })}
+            <button type="submit" class="btn btn-primary btn-block" disabled={submitting || logs.length === 0}>
+              {submitting ? 'Сохранение…' : 'Завершить тренировку'}
+            </button>
+          </form>
+        </>
       )}
     </div>
   );

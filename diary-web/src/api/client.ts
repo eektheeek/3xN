@@ -78,6 +78,11 @@ export const api = {
       body: JSON.stringify(body),
     }),
   getWorkoutSession: (id: string) => request<WorkoutSession>(`/v1/workout-sessions/${id}`),
+  finishWorkoutSession: (id: string, body: { durationSec: number }) =>
+    request<WorkoutSession>(`/v1/workout-sessions/${id}/finish`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   saveSessionExercise: (sessionId: string, exerciseId: string, body: SaveSessionExerciseBody) =>
     request<WorkoutSessionExercise>(
       `/v1/workout-sessions/${sessionId}/exercises/${exerciseId}`,

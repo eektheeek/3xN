@@ -57,7 +57,7 @@ export function WorkoutPlanDetail({ id }: WorkoutPlanDetailProps) {
 
           <div class="actions">
             <a href={`/workouts/${id}/start`} class="btn btn-primary btn-block">
-              Начать тренировку
+              Открыть тренировку
             </a>
           </div>
         </>

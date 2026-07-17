@@ -1,5 +1,5 @@
 import type { WorkoutSessionSummary } from '../types';
-import { exerciseCountLabel, formatSessionDate } from '../utils/dates';
+import { exerciseCountLabel, formatDurationLabel, formatSessionDate } from '../utils/dates';
 
 interface SessionSummaryCardProps {
   session: WorkoutSessionSummary;
@@ -8,11 +8,15 @@ interface SessionSummaryCardProps {
 
 export function SessionSummaryCard({ session, showDate = true }: SessionSummaryCardProps) {
   const names = session.exerciseNames.join(', ');
+  const duration = formatDurationLabel(session.durationSec);
 
   return (
     <a href={`/diary/${session.id}`} class="list-item">
       {showDate && <span class="list-item__title">{formatSessionDate(session.performedAt)}</span>}
-      <span class="list-item__meta">{exerciseCountLabel(session.exerciseCount)}</span>
+      <span class="list-item__meta">
+        {exerciseCountLabel(session.exerciseCount)}
+        {duration ? ` · ${duration}` : ''}
+      </span>
       {names && <span class="list-item__meta">{names}</span>}
       {session.isDeload && <span class="badge badge--muted">Разгрузка</span>}
     </a>

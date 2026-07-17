@@ -23,6 +23,8 @@ type ExerciseTarget struct {
 type WorkoutSession struct {
 	ID          string                   `json:"id"`
 	PerformedAt string                   `json:"performedAt"`
+	StartedAt   string                   `json:"startedAt,omitempty"`
+	DurationSec int                      `json:"durationSec"`
 	IsDeload    bool                     `json:"isDeload"`
 	CreatedAt   string                   `json:"createdAt"`
 	Exercises   []WorkoutSessionExercise `json:"exercises,omitempty"`
@@ -43,6 +45,7 @@ type WorkoutSessionExercise struct {
 type WorkoutSessionSummary struct {
 	ID            string   `json:"id"`
 	PerformedAt   string   `json:"performedAt"`
+	DurationSec   int      `json:"durationSec"`
 	IsDeload      bool     `json:"isDeload"`
 	CreatedAt     string   `json:"createdAt"`
 	ExerciseCount int      `json:"exerciseCount"`

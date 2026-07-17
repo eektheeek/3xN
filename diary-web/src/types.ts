@@ -52,6 +52,7 @@ export interface WorkoutSessionExercise {
 export interface WorkoutSessionSummary {
   id: string;
   performedAt: string;
+  durationSec: number;
   isDeload: boolean;
   createdAt: string;
   exerciseCount: number;
@@ -61,6 +62,8 @@ export interface WorkoutSessionSummary {
 export interface WorkoutSession {
   id: string;
   performedAt: string;
+  startedAt?: string;
+  durationSec: number;
   isDeload: boolean;
   createdAt: string;
   exercises?: WorkoutSessionExercise[];
@@ -125,6 +128,7 @@ export interface StartWorkoutSessionBody {
 export interface ActiveWorkoutDraft {
   sessionId: string;
   planId: string;
+  startedAt: string;
   savedExerciseIds: string[];
   logs: {
     exerciseId: string;

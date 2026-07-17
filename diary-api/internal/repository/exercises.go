@@ -31,12 +31,14 @@ func (r *Repository) CreateExercise(name, muscleGroup string, supportsAssist boo
 	return ex, nil
 }
 
-// ListExercises returns all exercises (without targets).
+// ListExercises returns all exercises with targets when present.
 func (r *Repository) ListExercises() ([]models.Exercise, error) {
 	rows, err := r.db.Query(
-		`SELECT id, name, muscle_group, supports_assist, created_at
-		 FROM exercises
-		 ORDER BY created_at ASC`,
+		`SELECT e.id, e.name, e.muscle_group, e.supports_assist, e.created_at,
+		        t.target_sets, t.target_reps, t.weight_kg, t.assist_kg
+		 FROM exercises e
+		 LEFT JOIN exercise_targets t ON t.exercise_id = e.id
+		 ORDER BY e.created_at ASC`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list exercises: %w", err)
@@ -47,10 +49,24 @@ func (r *Repository) ListExercises() ([]models.Exercise, error) {
 	for rows.Next() {
 		var ex models.Exercise
 		var assist int
-		if err := rows.Scan(&ex.ID, &ex.Name, &ex.MuscleGroup, &assist, &ex.CreatedAt); err != nil {
+		var targetSets, targetReps sql.NullInt64
+		var weightKg, assistKg sql.NullFloat64
+		if err := rows.Scan(
+			&ex.ID, &ex.Name, &ex.MuscleGroup, &assist, &ex.CreatedAt,
+			&targetSets, &targetReps, &weightKg, &assistKg,
+		); err != nil {
 			return nil, fmt.Errorf("scan exercise: %w", err)
 		}
 		ex.SupportsAssist = assist == 1
+		if targetSets.Valid {
+			ex.Target = &models.ExerciseTarget{
+				ExerciseID: ex.ID,
+				TargetSets: int(targetSets.Int64),
+				TargetReps: int(targetReps.Int64),
+				WeightKg:   weightKg.Float64,
+				AssistKg:   assistKg.Float64,
+			}
+		}
 		out = append(out, ex)
 	}
 	if err := rows.Err(); err != nil {

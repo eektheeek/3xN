@@ -38,16 +38,57 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 		t.Fatalf("expected target on exercise, got %+v", got)
 	}
 
-	session, err := repo.CreateWorkoutSession(repository.CreateWorkoutSessionInput{
-		PerformedAt: "2026-07-16T18:00:00Z",
+	list, err := repo.ListExercises()
+	if err != nil {
+		t.Fatalf("list exercises: %v", err)
+	}
+	if len(list) != 1 || list[0].Target == nil || list[0].Target.AssistKg != 25 {
+		t.Fatalf("expected target on listed exercise, got %+v", list)
+	}
+
+	session, err := repo.StartWorkoutSession("2026-07-16T18:00:00Z", false)
+	if err != nil {
+		t.Fatalf("start workout session: %v", err)
+	}
+
+	block, err := repo.SaveSessionExercise(session.ID, 1, ex.ID, []repository.CreateSetInput{
+		{SetNumber: 1, Reps: 12, WeightKg: 0, AssistKg: 25},
+		{SetNumber: 2, Reps: 12, WeightKg: 0, AssistKg: 25},
+		{SetNumber: 3, Reps: 12, WeightKg: 0, AssistKg: 25},
+	})
+	if err != nil {
+		t.Fatalf("save session exercise: %v", err)
+	}
+	if len(block.Sets) != 3 {
+		t.Fatalf("unexpected block sets: %+v", block)
+	}
+
+	block2, err := repo.SaveSessionExercise(session.ID, 1, ex.ID, []repository.CreateSetInput{
+		{SetNumber: 1, Reps: 10, WeightKg: 0, AssistKg: 20},
+	})
+	if err != nil {
+		t.Fatalf("update session exercise: %v", err)
+	}
+	if len(block2.Sets) != 1 || block2.Sets[0].Reps != 10 {
+		t.Fatalf("unexpected updated block: %+v", block2)
+	}
+
+	loaded, err := repo.GetWorkoutSession(session.ID)
+	if err != nil {
+		t.Fatalf("get workout session: %v", err)
+	}
+	if loaded.ID != session.ID || len(loaded.Exercises) != 1 || len(loaded.Exercises[0].Sets) != 1 {
+		t.Fatalf("unexpected loaded session: %+v", loaded)
+	}
+
+	fullSession, err := repo.CreateWorkoutSession(repository.CreateWorkoutSessionInput{
+		PerformedAt: "2026-07-16T19:00:00Z",
 		IsDeload:    false,
 		Exercises: []repository.CreateWorkoutSessionExerciseInput{
 			{
 				ExerciseID: ex.ID,
 				Sets: []repository.CreateSetInput{
 					{SetNumber: 1, Reps: 12, WeightKg: 0, AssistKg: 25},
-					{SetNumber: 2, Reps: 12, WeightKg: 0, AssistKg: 25},
-					{SetNumber: 3, Reps: 12, WeightKg: 0, AssistKg: 25},
 				},
 			},
 		},
@@ -55,15 +96,7 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create workout session: %v", err)
 	}
-	if len(session.Exercises) != 1 || len(session.Exercises[0].Sets) != 3 {
-		t.Fatalf("unexpected session shape: %+v", session)
-	}
-
-	loaded, err := repo.GetWorkoutSession(session.ID)
-	if err != nil {
-		t.Fatalf("get workout session: %v", err)
-	}
-	if loaded.ID != session.ID || len(loaded.Exercises[0].Sets) != 3 {
-		t.Fatalf("unexpected loaded session: %+v", loaded)
+	if len(fullSession.Exercises) != 1 || len(fullSession.Exercises[0].Sets) != 1 {
+		t.Fatalf("unexpected session shape: %+v", fullSession)
 	}
 }

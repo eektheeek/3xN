@@ -126,6 +126,137 @@ func (r *Repository) CreateWorkoutSession(in CreateWorkoutSessionInput) (models.
 	return session, nil
 }
 
+// StartWorkoutSession creates an empty session for incremental logging.
+func (r *Repository) StartWorkoutSession(performedAt string, isDeload bool) (models.WorkoutSession, error) {
+	session := models.WorkoutSession{
+		ID:          uuid.NewString(),
+		PerformedAt: performedAt,
+		IsDeload:    isDeload,
+		CreatedAt:   time.Now().UTC().Format(time.RFC3339),
+		Exercises:   []models.WorkoutSessionExercise{},
+	}
+	if session.PerformedAt == "" {
+		session.PerformedAt = session.CreatedAt
+	}
+
+	_, err := r.db.Exec(
+		`INSERT INTO workout_sessions (id, performed_at, is_deload, created_at)
+		 VALUES (?, ?, ?, ?)`,
+		session.ID, session.PerformedAt, boolToInt(session.IsDeload), session.CreatedAt,
+	)
+	if err != nil {
+		return models.WorkoutSession{}, fmt.Errorf("insert workout session: %w", err)
+	}
+	return session, nil
+}
+
+// SaveSessionExercise upserts one exercise block inside an existing session.
+func (r *Repository) SaveSessionExercise(
+	sessionID string,
+	position int,
+	exerciseID string,
+	sets []CreateSetInput,
+) (models.WorkoutSessionExercise, error) {
+	if position < 1 {
+		return models.WorkoutSessionExercise{}, fmt.Errorf("position must be >= 1")
+	}
+	if exerciseID == "" {
+		return models.WorkoutSessionExercise{}, fmt.Errorf("exerciseId is required")
+	}
+	if len(sets) == 0 {
+		return models.WorkoutSessionExercise{}, fmt.Errorf("at least one set required")
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return models.WorkoutSessionExercise{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var sessionExists int
+	err = tx.QueryRow(`SELECT 1 FROM workout_sessions WHERE id = ?`, sessionID).Scan(&sessionExists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.WorkoutSessionExercise{}, ErrNotFound
+	}
+	if err != nil {
+		return models.WorkoutSessionExercise{}, fmt.Errorf("check session %s: %w", sessionID, err)
+	}
+
+	var exerciseExists int
+	err = tx.QueryRow(`SELECT 1 FROM exercises WHERE id = ?`, exerciseID).Scan(&exerciseExists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.WorkoutSessionExercise{}, fmt.Errorf("exercise %s: %w", exerciseID, ErrNotFound)
+	}
+	if err != nil {
+		return models.WorkoutSessionExercise{}, fmt.Errorf("check exercise %s: %w", exerciseID, err)
+	}
+
+	var wse models.WorkoutSessionExercise
+	err = tx.QueryRow(
+		`SELECT id, workout_session_id, exercise_id, position
+		 FROM workout_session_exercises
+		 WHERE workout_session_id = ? AND exercise_id = ?`,
+		sessionID, exerciseID,
+	).Scan(&wse.ID, &wse.WorkoutSessionID, &wse.ExerciseID, &wse.Position)
+	if errors.Is(err, sql.ErrNoRows) {
+		wse = models.WorkoutSessionExercise{
+			ID:               uuid.NewString(),
+			WorkoutSessionID: sessionID,
+			ExerciseID:       exerciseID,
+			Position:         position,
+		}
+		_, err = tx.Exec(
+			`INSERT INTO workout_session_exercises (id, workout_session_id, exercise_id, position)
+			 VALUES (?, ?, ?, ?)`,
+			wse.ID, wse.WorkoutSessionID, wse.ExerciseID, wse.Position,
+		)
+		if err != nil {
+			return models.WorkoutSessionExercise{}, fmt.Errorf("insert workout session exercise: %w", err)
+		}
+	} else if err != nil {
+		return models.WorkoutSessionExercise{}, fmt.Errorf("find workout session exercise: %w", err)
+	} else if wse.Position != position {
+		_, err = tx.Exec(
+			`UPDATE workout_session_exercises SET position = ? WHERE id = ?`,
+			position, wse.ID,
+		)
+		if err != nil {
+			return models.WorkoutSessionExercise{}, fmt.Errorf("update position: %w", err)
+		}
+		wse.Position = position
+	}
+
+	if _, err := tx.Exec(`DELETE FROM sets WHERE workout_session_exercise_id = ?`, wse.ID); err != nil {
+		return models.WorkoutSessionExercise{}, fmt.Errorf("delete old sets: %w", err)
+	}
+
+	wse.Sets = make([]models.Set, 0, len(sets))
+	for _, setIn := range sets {
+		set := models.Set{
+			ID:                       uuid.NewString(),
+			WorkoutSessionExerciseID: wse.ID,
+			SetNumber:                setIn.SetNumber,
+			Reps:                     setIn.Reps,
+			WeightKg:                 setIn.WeightKg,
+			AssistKg:                 setIn.AssistKg,
+		}
+		_, err = tx.Exec(
+			`INSERT INTO sets (id, workout_session_exercise_id, set_number, reps, weight_kg, assist_kg)
+			 VALUES (?, ?, ?, ?, ?, ?)`,
+			set.ID, set.WorkoutSessionExerciseID, set.SetNumber, set.Reps, set.WeightKg, set.AssistKg,
+		)
+		if err != nil {
+			return models.WorkoutSessionExercise{}, fmt.Errorf("insert set: %w", err)
+		}
+		wse.Sets = append(wse.Sets, set)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return models.WorkoutSessionExercise{}, fmt.Errorf("commit tx: %w", err)
+	}
+	return wse, nil
+}
+
 // GetWorkoutSession returns a workout session with exercises and sets.
 func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error) {
 	var session models.WorkoutSession

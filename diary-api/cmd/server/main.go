@@ -26,7 +26,7 @@ func main() {
 	mux := handlers.NewMux(api)
 
 	log.Printf("listening on %s (db=%s)", addr, dbPath)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, handlers.CORS(mux)); err != nil {
 		log.Fatalf("listen: %v", err)
 	}
 }

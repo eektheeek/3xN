@@ -101,3 +101,78 @@ func (a *API) GetWorkoutSession(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, session)
 }
+
+type startWorkoutSessionRequest struct {
+	PerformedAt string `json:"performedAt"`
+	IsDeload    bool   `json:"isDeload"`
+}
+
+// StartWorkoutSession handles POST /v1/workout-sessions/start.
+func (a *API) StartWorkoutSession(w http.ResponseWriter, r *http.Request) {
+	var req startWorkoutSessionRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+
+	session, err := a.repo.StartWorkoutSession(req.PerformedAt, req.IsDeload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to start workout session")
+		return
+	}
+	writeJSON(w, http.StatusCreated, session)
+}
+
+type saveSessionExerciseRequest struct {
+	Position int                `json:"position"`
+	Sets     []createSetRequest `json:"sets"`
+}
+
+// SaveSessionExercise handles PUT /v1/workout-sessions/{id}/exercises/{exerciseId}.
+func (a *API) SaveSessionExercise(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.PathValue("id")
+	exerciseID := r.PathValue("exerciseId")
+	if sessionID == "" || exerciseID == "" {
+		writeError(w, http.StatusBadRequest, "id and exerciseId are required")
+		return
+	}
+
+	var req saveSessionExerciseRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if req.Position < 1 {
+		writeError(w, http.StatusBadRequest, "position must be >= 1")
+		return
+	}
+	if len(req.Sets) == 0 {
+		writeError(w, http.StatusBadRequest, "sets is required")
+		return
+	}
+
+	sets := make([]repository.CreateSetInput, 0, len(req.Sets))
+	for _, s := range req.Sets {
+		if s.SetNumber < 1 || s.Reps < 0 || s.WeightKg < 0 || s.AssistKg < 0 {
+			writeError(w, http.StatusBadRequest, "invalid set fields")
+			return
+		}
+		sets = append(sets, repository.CreateSetInput{
+			SetNumber: s.SetNumber,
+			Reps:      s.Reps,
+			WeightKg:  s.WeightKg,
+			AssistKg:  s.AssistKg,
+		})
+	}
+
+	block, err := a.repo.SaveSessionExercise(sessionID, req.Position, exerciseID, sets)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "workout session or exercise not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to save exercise result")
+		return
+	}
+	writeJSON(w, http.StatusOK, block)
+}

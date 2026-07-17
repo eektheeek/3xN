@@ -46,3 +46,20 @@ type Set struct {
 	WeightKg                 float64 `json:"weightKg"`
 	AssistKg                 float64 `json:"assistKg"` // 0 when unused
 }
+
+// WorkoutPlan is a saved workout template (stack of exercises).
+type WorkoutPlan struct {
+	ID         string                `json:"id"`
+	Name       string                `json:"name"`
+	CreatedAt  string                `json:"createdAt"`
+	Exercises  []WorkoutPlanExercise `json:"exercises,omitempty"`
+}
+
+// WorkoutPlanExercise is one exercise slot in a plan.
+type WorkoutPlanExercise struct {
+	ID            string `json:"id"`
+	WorkoutPlanID string `json:"workoutPlanId"`
+	ExerciseID    string `json:"exerciseId"`
+	Position      int    `json:"position"`
+	ExerciseName  string `json:"exerciseName,omitempty"`
+}

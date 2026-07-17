@@ -22,6 +22,7 @@ type createExerciseRequest struct {
 	Name           string `json:"name"`
 	MuscleGroup    string `json:"muscleGroup"`
 	SupportsAssist bool   `json:"supportsAssist"`
+	ProtocolID     string `json:"protocolId"`
 }
 
 type setTargetRequest struct {
@@ -44,7 +45,16 @@ func (a *API) CreateExercise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ex, err := a.repo.CreateExercise(req.Name, strings.TrimSpace(req.MuscleGroup), req.SupportsAssist)
+	ex, err := a.repo.CreateExercise(
+		req.Name,
+		strings.TrimSpace(req.MuscleGroup),
+		req.SupportsAssist,
+		strings.TrimSpace(req.ProtocolID),
+	)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "interval protocol not found")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create exercise")
 		return
@@ -56,6 +66,7 @@ type updateExerciseRequest struct {
 	Name           string `json:"name"`
 	MuscleGroup    string `json:"muscleGroup"`
 	SupportsAssist bool   `json:"supportsAssist"`
+	ProtocolID     string `json:"protocolId"`
 }
 
 // UpdateExercise handles PUT /v1/exercises/{id}.
@@ -77,9 +88,15 @@ func (a *API) UpdateExercise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ex, err := a.repo.UpdateExercise(id, req.Name, strings.TrimSpace(req.MuscleGroup), req.SupportsAssist)
+	ex, err := a.repo.UpdateExercise(
+		id,
+		req.Name,
+		strings.TrimSpace(req.MuscleGroup),
+		req.SupportsAssist,
+		strings.TrimSpace(req.ProtocolID),
+	)
 	if errors.Is(err, repository.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "exercise not found")
+		writeError(w, http.StatusNotFound, "exercise or interval protocol not found")
 		return
 	}
 	if err != nil {

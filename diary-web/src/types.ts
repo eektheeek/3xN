@@ -11,8 +11,19 @@ export interface Exercise {
   name: string;
   muscleGroup: string;
   supportsAssist: boolean;
+  protocolId?: string;
   createdAt: string;
   target?: ExerciseTarget;
+  protocol?: IntervalProtocol;
+}
+
+export interface IntervalProtocol {
+  id: string;
+  name: string;
+  workSec: number;
+  restSec: number;
+  warmupExtra: boolean;
+  createdAt: string;
 }
 
 export interface WorkoutPlanExercise {
@@ -73,9 +84,19 @@ export interface CreateExerciseBody {
   name: string;
   muscleGroup?: string;
   supportsAssist?: boolean;
+  protocolId?: string;
 }
 
 export type UpdateExerciseBody = CreateExerciseBody;
+
+export interface CreateIntervalProtocolBody {
+  name: string;
+  workSec: number;
+  restSec: number;
+  warmupExtra: boolean;
+}
+
+export type UpdateIntervalProtocolBody = CreateIntervalProtocolBody;
 
 export interface SetTargetBody {
   sets: number;

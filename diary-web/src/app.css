@@ -614,3 +614,88 @@ h2 {
 .input--goal-met-text {
   color: #2e7d32;
 }
+
+.tabata-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.tabata-panel {
+  width: 100%;
+  max-width: 360px;
+  padding: 1.5rem 1.25rem;
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: center;
+  border: 3px solid var(--border);
+}
+
+.tabata-panel--work {
+  border-color: #34c759;
+  background: #e8f8ec;
+}
+
+.tabata-panel--rest {
+  border-color: #007aff;
+  background: #eef4ff;
+}
+
+.tabata-panel--done {
+  border-color: var(--accent);
+}
+
+.tabata-panel__exercise {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.tabata-panel__protocol {
+  margin: 0.25rem 0 1rem;
+  font-size: 0.85rem;
+}
+
+.tabata-panel__phase {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tabata-panel__round {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.tabata-panel__time {
+  margin: 0.75rem 0 1.25rem;
+  font-size: 3.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.tabata-panel__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field select {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 1rem;
+  background: var(--surface);
+  color: var(--text);
+}

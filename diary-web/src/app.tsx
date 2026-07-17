@@ -7,6 +7,9 @@ import { ExerciseNew } from './pages/ExerciseNew';
 import { ExerciseDetail } from './pages/ExerciseDetail';
 import { Diary } from './pages/Diary';
 import { DiarySessionDetail } from './pages/DiarySessionDetail';
+import { ProtocolList } from './pages/ProtocolList';
+import { ProtocolNew } from './pages/ProtocolNew';
+import { ProtocolDetail } from './pages/ProtocolDetail';
 import './app.css';
 
 export function App() {
@@ -19,6 +22,9 @@ export function App() {
         <WorkoutPlanDetail path="/workouts/:id" />
         <ExerciseNew path="/exercises/new" />
         <ExerciseDetail path="/exercises/:id" />
+        <ProtocolNew path="/protocols/new" />
+        <ProtocolDetail path="/protocols/:id" />
+        <ProtocolList path="/protocols" />
         <DiarySessionDetail path="/diary/:id" />
         <Diary path="/diary" />
       </Router>

@@ -1,13 +1,16 @@
 import type {
   CreateExerciseBody,
+  CreateIntervalProtocolBody,
   CreateWorkoutPlanBody,
   CreateWorkoutSessionBody,
   Exercise,
   ExerciseTarget,
+  IntervalProtocol,
   SaveSessionExerciseBody,
   SetTargetBody,
   StartWorkoutSessionBody,
   UpdateExerciseBody,
+  UpdateIntervalProtocolBody,
   WorkoutPlan,
   WorkoutSession,
   WorkoutSessionExercise,
@@ -63,6 +66,21 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+
+  listIntervalProtocols: () => request<IntervalProtocol[]>('/v1/interval-protocols'),
+  getIntervalProtocol: (id: string) => request<IntervalProtocol>(`/v1/interval-protocols/${id}`),
+  createIntervalProtocol: (body: CreateIntervalProtocolBody) =>
+    request<IntervalProtocol>('/v1/interval-protocols', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateIntervalProtocol: (id: string, body: UpdateIntervalProtocolBody) =>
+    request<IntervalProtocol>(`/v1/interval-protocols/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  deleteIntervalProtocol: (id: string) =>
+    request<void>(`/v1/interval-protocols/${id}`, { method: 'DELETE' }),
 
   listWorkoutPlans: () => request<WorkoutPlan[]>('/v1/workout-plans'),
   getWorkoutPlan: (id: string) => request<WorkoutPlan>(`/v1/workout-plans/${id}`),

@@ -16,6 +16,12 @@ func NewMux(api *API) *http.ServeMux {
 	mux.HandleFunc("PUT /v1/exercises/{id}", api.UpdateExercise)
 	mux.HandleFunc("PUT /v1/exercises/{id}/target", api.SetTarget)
 
+	mux.HandleFunc("POST /v1/interval-protocols", api.CreateIntervalProtocol)
+	mux.HandleFunc("GET /v1/interval-protocols", api.ListIntervalProtocols)
+	mux.HandleFunc("GET /v1/interval-protocols/{id}", api.GetIntervalProtocol)
+	mux.HandleFunc("PUT /v1/interval-protocols/{id}", api.UpdateIntervalProtocol)
+	mux.HandleFunc("DELETE /v1/interval-protocols/{id}", api.DeleteIntervalProtocol)
+
 	mux.HandleFunc("POST /v1/workout-sessions", api.CreateWorkoutSession)
 	mux.HandleFunc("POST /v1/workout-sessions/start", api.StartWorkoutSession)
 	mux.HandleFunc("GET /v1/workout-sessions", api.ListWorkoutSessions)

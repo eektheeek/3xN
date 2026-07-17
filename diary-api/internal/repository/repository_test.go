@@ -17,9 +17,19 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 
 	repo := repository.New(sqlDB)
 
-	ex, err := repo.CreateExercise("Wide grip pull-up", "back", true)
+	ex, err := repo.CreateExercise("Wide grip pull-up", "back", true, "")
 	if err != nil {
 		t.Fatalf("create exercise: %v", err)
+	}
+
+	proto, err := repo.CreateIntervalProtocol(repository.CreateIntervalProtocolInput{
+		Name:        "40/20 + warmup",
+		WorkSec:     40,
+		RestSec:     20,
+		WarmupExtra: true,
+	})
+	if err != nil {
+		t.Fatalf("create protocol: %v", err)
 	}
 
 	target, err := repo.SetTarget(ex.ID, 3, 12, 0, 25)
@@ -38,7 +48,7 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 		t.Fatalf("expected target on exercise, got %+v", got)
 	}
 
-	updated, err := repo.UpdateExercise(ex.ID, "Pull-up", "back", false)
+	updated, err := repo.UpdateExercise(ex.ID, "Pull-up", "back", false, proto.ID)
 	if err != nil {
 		t.Fatalf("update exercise: %v", err)
 	}
@@ -47,6 +57,9 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 	}
 	if updated.Target == nil || updated.Target.AssistKg != 0 {
 		t.Fatalf("expected assist cleared on target, got %+v", updated.Target)
+	}
+	if updated.Protocol == nil || updated.Protocol.ID != proto.ID || !updated.Protocol.WarmupExtra {
+		t.Fatalf("expected protocol on exercise, got %+v", updated.Protocol)
 	}
 
 	list, err := repo.ListExercises()

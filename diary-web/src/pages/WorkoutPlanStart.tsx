@@ -5,8 +5,10 @@ import type { ActiveWorkoutDraft, CreateSetBody, Exercise } from '../types';
 import { activeWorkoutKey } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { SetRow } from '../components/SetRow';
+import { TabataTimer } from '../components/TabataTimer';
 import { formatDuration } from '../utils/dates';
 import { formatExerciseStats } from '../utils/workoutStats';
+import type { IntervalProtocol } from '../types';
 
 interface WorkoutPlanStartProps extends RoutableProps {
   id?: string;
@@ -81,6 +83,11 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [finalDurationSec, setFinalDurationSec] = useState(0);
+  const [tabata, setTabata] = useState<{
+    protocol: IntervalProtocol;
+    sets: number;
+    exerciseName: string;
+  } | null>(null);
 
   const started = Boolean(sessionId && startedAt);
 
@@ -311,6 +318,15 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
 
       {!loading && started && (
         <>
+          {tabata && (
+            <TabataTimer
+              protocol={tabata.protocol}
+              sets={tabata.sets}
+              exerciseName={tabata.exerciseName}
+              onClose={() => setTabata(null)}
+            />
+          )}
+
           <div class="workout-timer" aria-live="polite">
             <span class="workout-timer__label">Время</span>
             <span class="workout-timer__value">{formatDuration(elapsed)}</span>
@@ -320,6 +336,8 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
             {logs.map((log, logIndex) => {
               const isSaved = savedExerciseIds.has(log.exercise.id);
               const isSaving = savingIndex === logIndex;
+              const protocol = log.exercise.protocol;
+              const canTabata = Boolean(protocol && (log.exercise.target?.sets ?? log.sets.length) > 0);
               return (
                 <section key={log.exercise.id} class="exercise-block">
                   <div class="exercise-block__head">
@@ -342,6 +360,23 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
                   <p class="exercise-block__stats">
                     {formatExerciseStats(log.sets, !log.exercise.supportsAssist)}
                   </p>
+                  {canTabata && protocol && (
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-block"
+                      style="margin-bottom:0.65rem"
+                      onClick={() =>
+                        setTabata({
+                          protocol,
+                          sets: log.exercise.target?.sets ?? log.sets.length,
+                          exerciseName: log.exercise.name,
+                        })
+                      }
+                    >
+                      Старт табаты
+                      {protocol.warmupExtra ? ' (+разминка)' : ''} · {protocol.workSec}/{protocol.restSec}с
+                    </button>
+                  )}
                   {log.sets.map((s, setIndex) => (
                     <SetRow
                       key={s.setNumber}

@@ -36,6 +36,9 @@ export function WorkoutPlanList(_props: RoutableProps) {
           <a href="/diary" class="btn btn-secondary">
             Дневник
           </a>
+          <a href="/protocols" class="btn btn-secondary">
+            Табаты
+          </a>
           <a href="/workouts/new" class="btn btn-primary btn-icon" aria-label="Создать тренировку">
             +
           </a>

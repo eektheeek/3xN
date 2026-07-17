@@ -2,12 +2,24 @@ package models
 
 // Exercise is a catalog movement the user can log.
 type Exercise struct {
-	ID             string          `json:"id"`
-	Name           string          `json:"name"`
-	MuscleGroup    string          `json:"muscleGroup"`
-	SupportsAssist bool            `json:"supportsAssist"`
-	CreatedAt      string          `json:"createdAt"`
-	Target         *ExerciseTarget `json:"target,omitempty"`
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	MuscleGroup    string            `json:"muscleGroup"`
+	SupportsAssist bool              `json:"supportsAssist"`
+	ProtocolID     string            `json:"protocolId,omitempty"`
+	CreatedAt      string            `json:"createdAt"`
+	Target         *ExerciseTarget   `json:"target,omitempty"`
+	Protocol       *IntervalProtocol `json:"protocol,omitempty"`
+}
+
+// IntervalProtocol is a saved Tabata / interval template.
+type IntervalProtocol struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	WorkSec     int    `json:"workSec"`
+	RestSec     int    `json:"restSec"`
+	WarmupExtra bool   `json:"warmupExtra"` // rounds = sets + 1 when true
+	CreatedAt   string `json:"createdAt"`
 }
 
 // ExerciseTarget is the current goal for an exercise.

@@ -24,6 +24,7 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 
 	proto, err := repo.CreateIntervalProtocol(repository.CreateIntervalProtocolInput{
 		Name:        "40/20 + warmup",
+		PrepareSec:  5,
 		WorkSec:     40,
 		RestSec:     20,
 		WarmupExtra: true,

@@ -13,6 +13,7 @@ import (
 // CreateIntervalProtocolInput defines a new saved Tabata template.
 type CreateIntervalProtocolInput struct {
 	Name        string
+	PrepareSec  int
 	WorkSec     int
 	RestSec     int
 	WarmupExtra bool
@@ -22,6 +23,9 @@ type CreateIntervalProtocolInput struct {
 func (r *Repository) CreateIntervalProtocol(in CreateIntervalProtocolInput) (models.IntervalProtocol, error) {
 	if in.Name == "" {
 		return models.IntervalProtocol{}, fmt.Errorf("name is required")
+	}
+	if in.PrepareSec < 0 {
+		return models.IntervalProtocol{}, fmt.Errorf("prepareSec must be >= 0")
 	}
 	if in.WorkSec < 1 {
 		return models.IntervalProtocol{}, fmt.Errorf("workSec must be >= 1")
@@ -33,6 +37,7 @@ func (r *Repository) CreateIntervalProtocol(in CreateIntervalProtocolInput) (mod
 	p := models.IntervalProtocol{
 		ID:          uuid.NewString(),
 		Name:        in.Name,
+		PrepareSec:  in.PrepareSec,
 		WorkSec:     in.WorkSec,
 		RestSec:     in.RestSec,
 		WarmupExtra: in.WarmupExtra,
@@ -40,9 +45,9 @@ func (r *Repository) CreateIntervalProtocol(in CreateIntervalProtocolInput) (mod
 	}
 
 	_, err := r.db.Exec(
-		`INSERT INTO interval_protocols (id, name, work_sec, rest_sec, warmup_extra, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		p.ID, p.Name, p.WorkSec, p.RestSec, boolToInt(p.WarmupExtra), p.CreatedAt,
+		`INSERT INTO interval_protocols (id, name, work_sec, rest_sec, warmup_extra, created_at, prepare_sec)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		p.ID, p.Name, p.WorkSec, p.RestSec, boolToInt(p.WarmupExtra), p.CreatedAt, p.PrepareSec,
 	)
 	if err != nil {
 		return models.IntervalProtocol{}, fmt.Errorf("insert interval protocol: %w", err)
@@ -53,7 +58,7 @@ func (r *Repository) CreateIntervalProtocol(in CreateIntervalProtocolInput) (mod
 // ListIntervalProtocols returns all saved protocols, newest first.
 func (r *Repository) ListIntervalProtocols() ([]models.IntervalProtocol, error) {
 	rows, err := r.db.Query(
-		`SELECT id, name, work_sec, rest_sec, warmup_extra, created_at
+		`SELECT id, name, work_sec, rest_sec, warmup_extra, created_at, prepare_sec
 		 FROM interval_protocols
 		 ORDER BY created_at DESC`,
 	)
@@ -64,12 +69,10 @@ func (r *Repository) ListIntervalProtocols() ([]models.IntervalProtocol, error) 
 
 	var out []models.IntervalProtocol
 	for rows.Next() {
-		var p models.IntervalProtocol
-		var warmup int
-		if err := rows.Scan(&p.ID, &p.Name, &p.WorkSec, &p.RestSec, &warmup, &p.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scan interval protocol: %w", err)
+		p, err := scanProtocol(rows)
+		if err != nil {
+			return nil, err
 		}
-		p.WarmupExtra = warmup == 1
 		out = append(out, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -83,18 +86,30 @@ func (r *Repository) ListIntervalProtocols() ([]models.IntervalProtocol, error) 
 
 // GetIntervalProtocol returns one protocol by id.
 func (r *Repository) GetIntervalProtocol(id string) (models.IntervalProtocol, error) {
-	var p models.IntervalProtocol
-	var warmup int
-	err := r.db.QueryRow(
-		`SELECT id, name, work_sec, rest_sec, warmup_extra, created_at
+	p, err := scanProtocol(r.db.QueryRow(
+		`SELECT id, name, work_sec, rest_sec, warmup_extra, created_at, prepare_sec
 		 FROM interval_protocols WHERE id = ?`,
 		id,
-	).Scan(&p.ID, &p.Name, &p.WorkSec, &p.RestSec, &warmup, &p.CreatedAt)
+	))
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.IntervalProtocol{}, ErrNotFound
 	}
 	if err != nil {
-		return models.IntervalProtocol{}, fmt.Errorf("get interval protocol: %w", err)
+		return models.IntervalProtocol{}, err
+	}
+	return p, nil
+}
+
+type protocolScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanProtocol(row protocolScanner) (models.IntervalProtocol, error) {
+	var p models.IntervalProtocol
+	var warmup int
+	err := row.Scan(&p.ID, &p.Name, &p.WorkSec, &p.RestSec, &warmup, &p.CreatedAt, &p.PrepareSec)
+	if err != nil {
+		return models.IntervalProtocol{}, err
 	}
 	p.WarmupExtra = warmup == 1
 	return p, nil
@@ -105,6 +120,9 @@ func (r *Repository) UpdateIntervalProtocol(id string, in CreateIntervalProtocol
 	if in.Name == "" {
 		return models.IntervalProtocol{}, fmt.Errorf("name is required")
 	}
+	if in.PrepareSec < 0 {
+		return models.IntervalProtocol{}, fmt.Errorf("prepareSec must be >= 0")
+	}
 	if in.WorkSec < 1 {
 		return models.IntervalProtocol{}, fmt.Errorf("workSec must be >= 1")
 	}
@@ -114,9 +132,9 @@ func (r *Repository) UpdateIntervalProtocol(id string, in CreateIntervalProtocol
 
 	res, err := r.db.Exec(
 		`UPDATE interval_protocols
-		 SET name = ?, work_sec = ?, rest_sec = ?, warmup_extra = ?
+		 SET name = ?, work_sec = ?, rest_sec = ?, warmup_extra = ?, prepare_sec = ?
 		 WHERE id = ?`,
-		in.Name, in.WorkSec, in.RestSec, boolToInt(in.WarmupExtra), id,
+		in.Name, in.WorkSec, in.RestSec, boolToInt(in.WarmupExtra), in.PrepareSec, id,
 	)
 	if err != nil {
 		return models.IntervalProtocol{}, fmt.Errorf("update interval protocol: %w", err)

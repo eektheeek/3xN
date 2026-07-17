@@ -8,7 +8,7 @@ import { SetRow } from '../components/SetRow';
 import { TabataTimer } from '../components/TabataTimer';
 import { formatDuration } from '../utils/dates';
 import { formatExerciseStats } from '../utils/workoutStats';
-import type { IntervalProtocol } from '../types';
+import { preloadTabataAudio, unlockAudio } from '../utils/beep';
 
 interface WorkoutPlanStartProps extends RoutableProps {
   id?: string;
@@ -83,13 +83,13 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [finalDurationSec, setFinalDurationSec] = useState(0);
-  const [tabata, setTabata] = useState<{
-    protocol: IntervalProtocol;
-    sets: number;
-    exerciseName: string;
-  } | null>(null);
+  const [tabataIndex, setTabataIndex] = useState<number | null>(null);
 
   const started = Boolean(sessionId && startedAt);
+
+  useEffect(() => {
+    preloadTabataAudio();
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -318,15 +318,6 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
 
       {!loading && started && (
         <>
-          {tabata && (
-            <TabataTimer
-              protocol={tabata.protocol}
-              sets={tabata.sets}
-              exerciseName={tabata.exerciseName}
-              onClose={() => setTabata(null)}
-            />
-          )}
-
           <div class="workout-timer" aria-live="polite">
             <span class="workout-timer__label">Время</span>
             <span class="workout-timer__value">{formatDuration(elapsed)}</span>
@@ -338,6 +329,7 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
               const isSaving = savingIndex === logIndex;
               const protocol = log.exercise.protocol;
               const canTabata = Boolean(protocol && (log.exercise.target?.sets ?? log.sets.length) > 0);
+              const tabataOpen = tabataIndex === logIndex && protocol;
               return (
                 <section key={log.exercise.id} class="exercise-block">
                   <div class="exercise-block__head">
@@ -360,22 +352,28 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
                   <p class="exercise-block__stats">
                     {formatExerciseStats(log.sets, !log.exercise.supportsAssist)}
                   </p>
-                  {canTabata && protocol && (
+                  {canTabata && protocol && !tabataOpen && (
                     <button
                       type="button"
                       class="btn btn-secondary btn-block"
                       style="margin-bottom:0.65rem"
-                      onClick={() =>
-                        setTabata({
-                          protocol,
-                          sets: log.exercise.target?.sets ?? log.sets.length,
-                          exerciseName: log.exercise.name,
-                        })
-                      }
+                      onClick={() => {
+                        // Sync silent unlock — required for iOS Safari timer pips
+                        unlockAudio();
+                        setTabataIndex(logIndex);
+                      }}
                     >
                       Старт табаты
-                      {protocol.warmupExtra ? ' (+разминка)' : ''} · {protocol.workSec}/{protocol.restSec}с
+                      {protocol.prepareSec > 0 ? ` · подг. ${protocol.prepareSec}с` : ''}
+                      {protocol.warmupExtra ? ' · +разминка' : ''} · {protocol.workSec}/{protocol.restSec}с
                     </button>
+                  )}
+                  {tabataOpen && (
+                    <TabataTimer
+                      protocol={protocol}
+                      sets={log.exercise.target?.sets ?? log.sets.length}
+                      onClose={() => setTabataIndex(null)}
+                    />
                   )}
                   {log.sets.map((s, setIndex) => (
                     <SetRow

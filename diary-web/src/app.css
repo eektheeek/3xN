@@ -615,78 +615,78 @@ h2 {
   color: #2e7d32;
 }
 
-.tabata-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.45);
-}
-
-.tabata-panel {
-  width: 100%;
-  max-width: 360px;
-  padding: 1.5rem 1.25rem;
-  border-radius: 16px;
+.tabata-inline {
+  margin-bottom: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
   background: var(--surface);
-  text-align: center;
-  border: 3px solid var(--border);
 }
 
-.tabata-panel--work {
+.tabata-inline--prepare {
+  border-color: #ff9500;
+  background: #fff8ee;
+}
+
+.tabata-inline--work {
   border-color: #34c759;
   background: #e8f8ec;
 }
 
-.tabata-panel--rest {
+.tabata-inline--rest {
   border-color: #007aff;
   background: #eef4ff;
 }
 
-.tabata-panel--done {
+.tabata-inline--done {
   border-color: var(--accent);
+  background: #eef4ff;
 }
 
-.tabata-panel__exercise {
-  margin: 0;
-  font-weight: 700;
-  font-size: 1.1rem;
+.tabata-inline__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
-.tabata-panel__protocol {
-  margin: 0.25rem 0 1rem;
-  font-size: 0.85rem;
-}
-
-.tabata-panel__phase {
-  margin: 0;
-  font-size: 1rem;
+.tabata-inline__name {
   font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.tabata-inline__phase {
+  font-size: 0.8rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
-.tabata-panel__round {
-  margin: 0.35rem 0 0;
+.tabata-inline__round {
+  margin: 0;
+  font-size: 0.85rem;
   color: var(--muted);
-  font-size: 0.95rem;
 }
 
-.tabata-panel__time {
-  margin: 0.75rem 0 1.25rem;
-  font-size: 3.5rem;
+.tabata-inline__time {
+  margin: 0.35rem 0 0.65rem;
+  font-size: 2.4rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  text-align: center;
 }
 
-.tabata-panel__actions {
+.tabata-inline__actions {
   display: flex;
-  flex-direction: column;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tabata-inline__actions .btn {
+  flex: 1;
+  min-width: 120px;
 }
 
 .field select {

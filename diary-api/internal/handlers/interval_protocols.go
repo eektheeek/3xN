@@ -10,6 +10,7 @@ import (
 
 type createIntervalProtocolRequest struct {
 	Name        string `json:"name"`
+	PrepareSec  int    `json:"prepareSec"`
 	WorkSec     int    `json:"workSec"`
 	RestSec     int    `json:"restSec"`
 	WarmupExtra bool   `json:"warmupExtra"`
@@ -27,13 +28,14 @@ func (a *API) CreateIntervalProtocol(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	if req.WorkSec < 1 || req.RestSec < 0 {
-		writeError(w, http.StatusBadRequest, "invalid workSec/restSec")
+	if req.PrepareSec < 0 || req.WorkSec < 1 || req.RestSec < 0 {
+		writeError(w, http.StatusBadRequest, "invalid prepareSec/workSec/restSec")
 		return
 	}
 
 	p, err := a.repo.CreateIntervalProtocol(repository.CreateIntervalProtocolInput{
 		Name:        req.Name,
+		PrepareSec:  req.PrepareSec,
 		WorkSec:     req.WorkSec,
 		RestSec:     req.RestSec,
 		WarmupExtra: req.WarmupExtra,
@@ -91,13 +93,14 @@ func (a *API) UpdateIntervalProtocol(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	if req.WorkSec < 1 || req.RestSec < 0 {
-		writeError(w, http.StatusBadRequest, "invalid workSec/restSec")
+	if req.PrepareSec < 0 || req.WorkSec < 1 || req.RestSec < 0 {
+		writeError(w, http.StatusBadRequest, "invalid prepareSec/workSec/restSec")
 		return
 	}
 
 	p, err := a.repo.UpdateIntervalProtocol(id, repository.CreateIntervalProtocolInput{
 		Name:        req.Name,
+		PrepareSec:  req.PrepareSec,
 		WorkSec:     req.WorkSec,
 		RestSec:     req.RestSec,
 		WarmupExtra: req.WarmupExtra,

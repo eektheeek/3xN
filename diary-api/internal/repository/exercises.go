@@ -92,7 +92,7 @@ func (r *Repository) UpdateExercise(id, name, muscleGroup string, supportsAssist
 const exerciseSelectSQL = `
 SELECT e.id, e.name, e.muscle_group, e.supports_assist, e.created_at, e.protocol_id,
        t.target_sets, t.target_reps, t.weight_kg, t.assist_kg,
-       p.name, p.work_sec, p.rest_sec, p.warmup_extra, p.created_at
+       p.name, p.work_sec, p.rest_sec, p.warmup_extra, p.created_at, p.prepare_sec
 FROM exercises e
 LEFT JOIN exercise_targets t ON t.exercise_id = e.id
 LEFT JOIN interval_protocols p ON p.id = e.protocol_id`
@@ -145,13 +145,13 @@ func scanExercise(row scannable) (models.Exercise, error) {
 	var targetSets, targetReps sql.NullInt64
 	var weightKg, assistKg sql.NullFloat64
 	var pName sql.NullString
-	var pWork, pRest, pWarmup sql.NullInt64
+	var pWork, pRest, pWarmup, pPrepare sql.NullInt64
 	var pCreated sql.NullString
 
 	err := row.Scan(
 		&ex.ID, &ex.Name, &ex.MuscleGroup, &assist, &ex.CreatedAt, &protocolID,
 		&targetSets, &targetReps, &weightKg, &assistKg,
-		&pName, &pWork, &pRest, &pWarmup, &pCreated,
+		&pName, &pWork, &pRest, &pWarmup, &pCreated, &pPrepare,
 	)
 	if err != nil {
 		return models.Exercise{}, err
@@ -173,6 +173,7 @@ func scanExercise(row scannable) (models.Exercise, error) {
 		ex.Protocol = &models.IntervalProtocol{
 			ID:          ex.ProtocolID,
 			Name:        pName.String,
+			PrepareSec:  int(pPrepare.Int64),
 			WorkSec:     int(pWork.Int64),
 			RestSec:     int(pRest.Int64),
 			WarmupExtra: pWarmup.Int64 == 1,

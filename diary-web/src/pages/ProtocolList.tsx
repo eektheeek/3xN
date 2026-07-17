@@ -5,7 +5,7 @@ import type { IntervalProtocol } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
 
 function protocolMeta(p: IntervalProtocol): string {
-  const parts = [`${p.workSec}с / ${p.restSec}с`];
+  const parts = [`подг. ${p.prepareSec}с`, `${p.workSec}с / ${p.restSec}с`];
   if (p.warmupExtra) parts.push('+1 разминка');
   return parts.join(' · ');
 }

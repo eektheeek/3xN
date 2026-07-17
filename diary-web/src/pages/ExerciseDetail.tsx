@@ -168,7 +168,8 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
                   <strong>{exercise.protocol.name}</strong>
                 </p>
                 <p class="muted">
-                  {exercise.protocol.workSec}с / {exercise.protocol.restSec}с
+                  подг. {exercise.protocol.prepareSec}с · {exercise.protocol.workSec}с /{' '}
+                  {exercise.protocol.restSec}с
                   {exercise.protocol.warmupExtra ? ' · +1 разминка' : ''}
                 </p>
                 {rounds != null && (
@@ -191,7 +192,7 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
                 <option value="">— без табаты —</option>
                 {protocols.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} ({p.workSec}/{p.restSec}
+                    {p.name} ({p.prepareSec}+{p.workSec}/{p.restSec}
                     {p.warmupExtra ? ' +разм.' : ''})
                   </option>
                 ))}

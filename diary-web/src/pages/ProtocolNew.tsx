@@ -17,6 +17,7 @@ export function ProtocolNew(_props: RoutableProps) {
     try {
       const p = await api.createIntervalProtocol({
         name: String(data.get('name')).trim(),
+        prepareSec: Number(data.get('prepareSec')),
         workSec: Number(data.get('workSec')),
         restSec: Number(data.get('restSec')),
         warmupExtra: data.get('warmupExtra') === 'on',
@@ -44,6 +45,10 @@ export function ProtocolNew(_props: RoutableProps) {
         <label class="field">
           <span>Название</span>
           <input name="name" type="text" required placeholder="40/20 с разминкой" />
+        </label>
+        <label class="field">
+          <span>Подготовка, сек</span>
+          <input name="prepareSec" type="number" min="0" required defaultValue={5} />
         </label>
         <label class="field">
           <span>Работа, сек</span>

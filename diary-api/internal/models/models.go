@@ -16,6 +16,7 @@ type Exercise struct {
 type IntervalProtocol struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
+	PrepareSec  int    `json:"prepareSec"` // countdown before first work
 	WorkSec     int    `json:"workSec"`
 	RestSec     int    `json:"restSec"`
 	WarmupExtra bool   `json:"warmupExtra"` // rounds = sets + 1 when true

@@ -20,6 +20,7 @@ export interface Exercise {
 export interface IntervalProtocol {
   id: string;
   name: string;
+  prepareSec: number;
   workSec: number;
   restSec: number;
   warmupExtra: boolean;
@@ -91,6 +92,7 @@ export type UpdateExerciseBody = CreateExerciseBody;
 
 export interface CreateIntervalProtocolBody {
   name: string;
+  prepareSec: number;
   workSec: number;
   restSec: number;
   warmupExtra: boolean;

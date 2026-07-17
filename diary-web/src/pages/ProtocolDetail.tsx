@@ -36,6 +36,7 @@ export function ProtocolDetail({ id }: ProtocolDetailProps) {
     try {
       const p = await api.updateIntervalProtocol(id, {
         name: String(data.get('name')).trim(),
+        prepareSec: Number(data.get('prepareSec')),
         workSec: Number(data.get('workSec')),
         restSec: Number(data.get('restSec')),
         warmupExtra: data.get('warmupExtra') === 'on',
@@ -86,7 +87,7 @@ export function ProtocolDetail({ id }: ProtocolDetailProps) {
         <section class="card">
           <h2 class="card__title">{protocol.name}</h2>
           <p>
-            Работа {protocol.workSec}с · Отдых {protocol.restSec}с
+            Подготовка {protocol.prepareSec}с · Работа {protocol.workSec}с · Отдых {protocol.restSec}с
             {protocol.warmupExtra ? ' · +1 разминка' : ''}
           </p>
           <p class="muted">Раунды = подходы из цели упражнения{protocol.warmupExtra ? ' + 1' : ''}.</p>
@@ -106,6 +107,10 @@ export function ProtocolDetail({ id }: ProtocolDetailProps) {
           <label class="field">
             <span>Название</span>
             <input name="name" type="text" required defaultValue={protocol.name} />
+          </label>
+          <label class="field">
+            <span>Подготовка, сек</span>
+            <input name="prepareSec" type="number" min="0" required defaultValue={protocol.prepareSec} />
           </label>
           <label class="field">
             <span>Работа, сек</span>

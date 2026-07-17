@@ -1,0 +1,1 @@
+ALTER TABLE workout_sessions ADD COLUMN duration_sec INTEGER NOT NULL DEFAULT 0;

@@ -32,9 +32,14 @@ export function WorkoutPlanList(_props: RoutableProps) {
     <div class="page">
       <header class="page-header">
         <h1>Тренировки</h1>
-        <a href="/workouts/new" class="btn btn-primary btn-icon" aria-label="Создать тренировку">
-          +
-        </a>
+        <div class="page-header__actions">
+          <a href="/diary" class="btn btn-secondary">
+            Дневник
+          </a>
+          <a href="/workouts/new" class="btn btn-primary btn-icon" aria-label="Создать тренировку">
+            +
+          </a>
+        </div>
       </header>
 
       <ErrorBanner message={error} />

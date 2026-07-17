@@ -26,7 +26,7 @@ export function SetRow({
   const repsMet = targetReps != null && value.reps >= targetReps;
 
   return (
-    <div class="set-row">
+    <div class={`set-row${repsMet ? ' set-row--done' : ''}`}>
       <div class="set-row__head">
         <span class="set-row__label">Подход {setNumber}</span>
         {targetReps != null && (

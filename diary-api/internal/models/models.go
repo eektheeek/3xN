@@ -34,7 +34,19 @@ type WorkoutSessionExercise struct {
 	WorkoutSessionID string `json:"workoutSessionId"`
 	ExerciseID       string `json:"exerciseId"`
 	Position         int    `json:"position"`
+	ExerciseName     string `json:"exerciseName,omitempty"`
+	SupportsAssist   bool   `json:"supportsAssist,omitempty"`
 	Sets             []Set  `json:"sets,omitempty"`
+}
+
+// WorkoutSessionSummary is a lightweight row for diary list/calendar views.
+type WorkoutSessionSummary struct {
+	ID            string   `json:"id"`
+	PerformedAt   string   `json:"performedAt"`
+	IsDeload      bool     `json:"isDeload"`
+	CreatedAt     string   `json:"createdAt"`
+	ExerciseCount int      `json:"exerciseCount"`
+	ExerciseNames []string `json:"exerciseNames"`
 }
 
 // Set is one performed set.

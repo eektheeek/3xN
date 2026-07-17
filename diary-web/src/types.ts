@@ -44,7 +44,18 @@ export interface WorkoutSessionExercise {
   workoutSessionId: string;
   exerciseId: string;
   position: number;
+  exerciseName?: string;
+  supportsAssist?: boolean;
   sets?: Set[];
+}
+
+export interface WorkoutSessionSummary {
+  id: string;
+  performedAt: string;
+  isDeload: boolean;
+  createdAt: string;
+  exerciseCount: number;
+  exerciseNames: string[];
 }
 
 export interface WorkoutSession {

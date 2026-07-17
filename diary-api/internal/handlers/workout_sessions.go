@@ -82,6 +82,16 @@ func (a *API) CreateWorkoutSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, session)
 }
 
+// ListWorkoutSessions handles GET /v1/workout-sessions.
+func (a *API) ListWorkoutSessions(w http.ResponseWriter, r *http.Request) {
+	sessions, err := a.repo.ListWorkoutSessions()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list workout sessions")
+		return
+	}
+	writeJSON(w, http.StatusOK, sessions)
+}
+
 // GetWorkoutSession handles GET /v1/workout-sessions/{id}.
 func (a *API) GetWorkoutSession(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")

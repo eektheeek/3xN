@@ -73,12 +73,26 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 		t.Fatalf("unexpected updated block: %+v", block2)
 	}
 
+	summaries, err := repo.ListWorkoutSessions()
+	if err != nil {
+		t.Fatalf("list workout sessions: %v", err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("expected 1 session in list, got %+v", summaries)
+	}
+	if summaries[0].ExerciseCount != 1 || len(summaries[0].ExerciseNames) != 1 {
+		t.Fatalf("unexpected summary: %+v", summaries[0])
+	}
+
 	loaded, err := repo.GetWorkoutSession(session.ID)
 	if err != nil {
 		t.Fatalf("get workout session: %v", err)
 	}
 	if loaded.ID != session.ID || len(loaded.Exercises) != 1 || len(loaded.Exercises[0].Sets) != 1 {
 		t.Fatalf("unexpected loaded session: %+v", loaded)
+	}
+	if loaded.Exercises[0].ExerciseName != "Wide grip pull-up" {
+		t.Fatalf("expected exercise name on session exercise, got %+v", loaded.Exercises[0])
 	}
 
 	fullSession, err := repo.CreateWorkoutSession(repository.CreateWorkoutSessionInput{

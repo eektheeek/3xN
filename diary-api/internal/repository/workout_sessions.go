@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/eektheeek/dead-lift-project/diary-api/internal/models"
@@ -257,6 +258,48 @@ func (r *Repository) SaveSessionExercise(
 	return wse, nil
 }
 
+// ListWorkoutSessions returns completed sessions (with at least one exercise), newest first.
+func (r *Repository) ListWorkoutSessions() ([]models.WorkoutSessionSummary, error) {
+	rows, err := r.db.Query(
+		`SELECT ws.id, ws.performed_at, ws.is_deload, ws.created_at,
+		        COUNT(wse.id) AS exercise_count,
+		        GROUP_CONCAT(e.name, char(31) ORDER BY wse.position) AS exercise_names
+		 FROM workout_sessions ws
+		 INNER JOIN workout_session_exercises wse ON wse.workout_session_id = ws.id
+		 INNER JOIN exercises e ON e.id = wse.exercise_id
+		 GROUP BY ws.id
+		 ORDER BY ws.performed_at DESC`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list workout sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.WorkoutSessionSummary
+	for rows.Next() {
+		var s models.WorkoutSessionSummary
+		var deload int
+		var namesRaw sql.NullString
+		if err := rows.Scan(&s.ID, &s.PerformedAt, &deload, &s.CreatedAt, &s.ExerciseCount, &namesRaw); err != nil {
+			return nil, fmt.Errorf("scan workout session summary: %w", err)
+		}
+		s.IsDeload = deload == 1
+		if namesRaw.Valid && namesRaw.String != "" {
+			s.ExerciseNames = strings.Split(namesRaw.String, "\x1f")
+		} else {
+			s.ExerciseNames = []string{}
+		}
+		out = append(out, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list workout sessions rows: %w", err)
+	}
+	if out == nil {
+		out = []models.WorkoutSessionSummary{}
+	}
+	return out, nil
+}
+
 // GetWorkoutSession returns a workout session with exercises and sets.
 func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error) {
 	var session models.WorkoutSession
@@ -275,10 +318,12 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 	session.IsDeload = deload == 1
 
 	exRows, err := r.db.Query(
-		`SELECT id, workout_session_id, exercise_id, position
-		 FROM workout_session_exercises
-		 WHERE workout_session_id = ?
-		 ORDER BY position ASC`,
+		`SELECT wse.id, wse.workout_session_id, wse.exercise_id, wse.position,
+		        e.name, e.supports_assist
+		 FROM workout_session_exercises wse
+		 INNER JOIN exercises e ON e.id = wse.exercise_id
+		 WHERE wse.workout_session_id = ?
+		 ORDER BY wse.position ASC`,
 		id,
 	)
 	if err != nil {
@@ -288,9 +333,14 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 
 	for exRows.Next() {
 		var wse models.WorkoutSessionExercise
-		if err := exRows.Scan(&wse.ID, &wse.WorkoutSessionID, &wse.ExerciseID, &wse.Position); err != nil {
+		var assist int
+		if err := exRows.Scan(
+			&wse.ID, &wse.WorkoutSessionID, &wse.ExerciseID, &wse.Position,
+			&wse.ExerciseName, &assist,
+		); err != nil {
 			return models.WorkoutSession{}, fmt.Errorf("scan workout session exercise: %w", err)
 		}
+		wse.SupportsAssist = assist == 1
 
 		sets, err := r.listSets(wse.ID)
 		if err != nil {

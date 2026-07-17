@@ -10,6 +10,7 @@ import type {
   WorkoutPlan,
   WorkoutSession,
   WorkoutSessionExercise,
+  WorkoutSessionSummary,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
@@ -70,6 +71,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  listWorkoutSessions: () => request<WorkoutSessionSummary[]>('/v1/workout-sessions'),
   startWorkoutSession: (body: StartWorkoutSessionBody = {}) =>
     request<WorkoutSession>('/v1/workout-sessions/start', {
       method: 'POST',

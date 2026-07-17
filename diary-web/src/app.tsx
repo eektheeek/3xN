@@ -5,6 +5,8 @@ import { WorkoutPlanDetail } from './pages/WorkoutPlanDetail';
 import { WorkoutPlanStart } from './pages/WorkoutPlanStart';
 import { ExerciseNew } from './pages/ExerciseNew';
 import { ExerciseDetail } from './pages/ExerciseDetail';
+import { Diary } from './pages/Diary';
+import { DiarySessionDetail } from './pages/DiarySessionDetail';
 import './app.css';
 
 export function App() {
@@ -17,6 +19,8 @@ export function App() {
         <WorkoutPlanDetail path="/workouts/:id" />
         <ExerciseNew path="/exercises/new" />
         <ExerciseDetail path="/exercises/:id" />
+        <DiarySessionDetail path="/diary/:id" />
+        <Diary path="/diary" />
       </Router>
     </div>
   );

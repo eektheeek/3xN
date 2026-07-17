@@ -5,6 +5,7 @@ import type { ActiveWorkoutDraft, CreateSetBody, Exercise } from '../types';
 import { activeWorkoutKey } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { SetRow } from '../components/SetRow';
+import { formatExerciseStats } from '../utils/workoutStats';
 
 interface WorkoutPlanStartProps extends RoutableProps {
   id?: string;
@@ -252,7 +253,7 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
                   {isSaved && <span class="badge badge--ok">Сохранено</span>}
                 </div>
                 {log.exercise.target && (
-                  <p class="muted" style="margin-top:0">
+                  <p class="muted exercise-block__goal">
                     Цель: {log.exercise.target.sets}×{log.exercise.target.reps}
                     {log.exercise.target.assistKg > 0
                       ? ` · резинка ${log.exercise.target.assistKg} кг`
@@ -260,10 +261,13 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
                   </p>
                 )}
                 {!log.exercise.target && (
-                  <p class="muted" style="margin-top:0">
+                  <p class="muted exercise-block__goal">
                     <a href={`/exercises/${log.exercise.id}`}>Задать цель</a>
                   </p>
                 )}
+                <p class="exercise-block__stats">
+                  {formatExerciseStats(log.sets, !log.exercise.supportsAssist)}
+                </p>
                 {log.sets.map((s, setIndex) => (
                   <SetRow
                     key={s.setNumber}

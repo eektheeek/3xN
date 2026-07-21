@@ -9,6 +9,11 @@ import { CycleTimeline } from '../components/CycleTimeline';
 
 function formatTarget(ex: Exercise): string | null {
   if (!ex.target) return null;
+  if (ex.kind === 'hold') {
+    const parts = [`${ex.target.sets}×${ex.target.holdSec}с`];
+    if (ex.target.weightKg > 0) parts.push(`${ex.target.weightKg} кг`);
+    return parts.join(' · ');
+  }
   const parts = [`${ex.target.sets}×${ex.target.reps}`];
   if (ex.target.weightKg > 0) parts.push(`${ex.target.weightKg} кг`);
   if (ex.supportsAssist && ex.target.assistKg > 0) parts.push(`рез. ${ex.target.assistKg} кг`);
@@ -47,7 +52,7 @@ export function WorkoutPlanList(_props: RoutableProps) {
   return (
     <div class="page">
       <header class="page-header">
-        <h1>Тренировки</h1>
+        <img src="/logo-3xn.jpg" alt="3xN" class="brand-logo" width="48" height="48" />
         <div class="page-header__actions">
           <a href="/cycles" class="btn btn-secondary">
             Циклы
@@ -57,9 +62,6 @@ export function WorkoutPlanList(_props: RoutableProps) {
           </a>
           <a href="/protocols" class="btn btn-secondary">
             Табаты
-          </a>
-          <a href="/workouts/new" class="btn btn-primary btn-icon" aria-label="Создать тренировку">
-            +
           </a>
         </div>
       </header>
@@ -105,7 +107,12 @@ export function WorkoutPlanList(_props: RoutableProps) {
       )}
 
       <section>
-        <h2 class="section-title">Мои тренировки</h2>
+        <div class="section-heading">
+          <h2 class="section-title">Мои тренировки</h2>
+          <a href="/workouts/new" class="btn btn-secondary btn-icon" aria-label="Создать тренировку">
+            +
+          </a>
+        </div>
         {!loading && plans.length === 0 && (
           <p class="muted">Пока нет сохранённых тренировок. Нажмите +, чтобы собрать первую.</p>
         )}
@@ -131,14 +138,14 @@ export function WorkoutPlanList(_props: RoutableProps) {
       </section>
 
       <section style="margin-top:1.5rem">
-        <div class="page-header" style="margin-bottom:0.5rem">
-          <h2 class="section-title" style="margin:0;flex:1">Каталог упражнений</h2>
+        <div class="section-heading">
+          <h2 class="section-title">Каталог упражнений</h2>
           <a href="/exercises/new" class="btn btn-secondary btn-icon" aria-label="Новое упражнение">
             +
           </a>
         </div>
         <p class="muted" style="font-size:0.85rem">
-          Цель (подходы × повторы) задаётся на карточке упражнения — при записи тренировки видно «план» и факт.
+          Цель задаётся на карточке упражнения: для повторов — подходы × повторы, для удержания — подходы × секунды.
         </p>
         {!loading && exercises.length === 0 && (
           <p class="muted">Каталог пуст. Создайте упражнение для использования в тренировках.</p>
@@ -150,7 +157,10 @@ export function WorkoutPlanList(_props: RoutableProps) {
               <li key={ex.id}>
                 <a href={`/exercises/${ex.id}`} class="list-item">
                   <span class="list-item__title">{ex.name}</span>
-                  {ex.muscleGroup && <span class="list-item__meta">{ex.muscleGroup}</span>}
+                  <span class="list-item__meta">
+                    {ex.kind === 'hold' ? 'Удержание' : ex.supportsAssist ? 'Повторы · assist' : 'Повторы'}
+                    {ex.muscleGroup ? ` · ${ex.muscleGroup}` : ''}
+                  </span>
                   {target ? (
                     <span class="list-item__meta">Цель: {target}</span>
                   ) : (

@@ -51,14 +51,16 @@ export function formatDuration(totalSec: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-/** Human-readable duration for diary, e.g. "1ч 12м" or "45м". */
+/** Human-readable duration, e.g. "1ч 2м 5с", "2м 10с", "45с". */
 export function formatDurationLabel(totalSec: number): string {
   const sec = Math.max(0, Math.floor(totalSec));
   if (sec <= 0) return '';
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
-  if (h > 0 && m > 0) return `${h}ч ${m}м`;
-  if (h > 0) return `${h}ч`;
-  if (m > 0) return `${m}м`;
-  return `${sec}с`;
+  const s = sec % 60;
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${h}ч`);
+  if (m > 0) parts.push(`${m}м`);
+  if (s > 0 || parts.length === 0) parts.push(`${s}с`);
+  return parts.join(' ');
 }

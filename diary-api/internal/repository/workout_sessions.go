@@ -26,10 +26,11 @@ type CreateWorkoutSessionExerciseInput struct {
 
 // CreateSetInput is one performed set.
 type CreateSetInput struct {
-	SetNumber int
-	Reps      int
-	WeightKg  float64
-	AssistKg  float64
+	SetNumber   int
+	Reps        int
+	DurationSec int
+	WeightKg    float64
+	AssistKg    float64
 }
 
 // CreateWorkoutSession stores a workout session with exercises and sets in one transaction.
@@ -108,13 +109,14 @@ func (r *Repository) CreateWorkoutSession(in CreateWorkoutSessionInput) (models.
 				WorkoutSessionExerciseID: wse.ID,
 				SetNumber:                setIn.SetNumber,
 				Reps:                     setIn.Reps,
+				DurationSec:              setIn.DurationSec,
 				WeightKg:                 setIn.WeightKg,
 				AssistKg:                 setIn.AssistKg,
 			}
 			_, err = tx.Exec(
-				`INSERT INTO sets (id, workout_session_exercise_id, set_number, reps, weight_kg, assist_kg)
-				 VALUES (?, ?, ?, ?, ?, ?)`,
-				set.ID, set.WorkoutSessionExerciseID, set.SetNumber, set.Reps, set.WeightKg, set.AssistKg,
+				`INSERT INTO sets (id, workout_session_exercise_id, set_number, reps, weight_kg, assist_kg, duration_sec)
+				 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+				set.ID, set.WorkoutSessionExerciseID, set.SetNumber, set.Reps, set.WeightKg, set.AssistKg, set.DurationSec,
 			)
 			if err != nil {
 				return models.WorkoutSession{}, fmt.Errorf("insert set: %w", err)
@@ -318,13 +320,14 @@ func (r *Repository) SaveSessionExercise(
 			WorkoutSessionExerciseID: wse.ID,
 			SetNumber:                setIn.SetNumber,
 			Reps:                     setIn.Reps,
+			DurationSec:              setIn.DurationSec,
 			WeightKg:                 setIn.WeightKg,
 			AssistKg:                 setIn.AssistKg,
 		}
 		_, err = tx.Exec(
-			`INSERT INTO sets (id, workout_session_exercise_id, set_number, reps, weight_kg, assist_kg)
-			 VALUES (?, ?, ?, ?, ?, ?)`,
-			set.ID, set.WorkoutSessionExerciseID, set.SetNumber, set.Reps, set.WeightKg, set.AssistKg,
+			`INSERT INTO sets (id, workout_session_exercise_id, set_number, reps, weight_kg, assist_kg, duration_sec)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			set.ID, set.WorkoutSessionExerciseID, set.SetNumber, set.Reps, set.WeightKg, set.AssistKg, set.DurationSec,
 		)
 		if err != nil {
 			return models.WorkoutSessionExercise{}, fmt.Errorf("insert set: %w", err)
@@ -445,7 +448,7 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 
 	exRows, err := r.db.Query(
 		`SELECT wse.id, wse.workout_session_id, wse.exercise_id, wse.position,
-		        e.name, e.supports_assist
+		        e.name, e.kind, e.supports_assist
 		 FROM workout_session_exercises wse
 		 INNER JOIN exercises e ON e.id = wse.exercise_id
 		 WHERE wse.workout_session_id = ?
@@ -462,10 +465,11 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 		var assist int
 		if err := exRows.Scan(
 			&wse.ID, &wse.WorkoutSessionID, &wse.ExerciseID, &wse.Position,
-			&wse.ExerciseName, &assist,
+			&wse.ExerciseName, &wse.Kind, &assist,
 		); err != nil {
 			return models.WorkoutSession{}, fmt.Errorf("scan workout session exercise: %w", err)
 		}
+		wse.Kind = normalizeExerciseKind(wse.Kind)
 		wse.SupportsAssist = assist == 1
 
 		sets, err := r.listSets(wse.ID)
@@ -486,7 +490,7 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 
 func (r *Repository) listSets(workoutSessionExerciseID string) ([]models.Set, error) {
 	rows, err := r.db.Query(
-		`SELECT id, workout_session_exercise_id, set_number, reps, weight_kg, assist_kg
+		`SELECT id, workout_session_exercise_id, set_number, reps, weight_kg, assist_kg, duration_sec
 		 FROM sets
 		 WHERE workout_session_exercise_id = ?
 		 ORDER BY set_number ASC`,
@@ -500,7 +504,9 @@ func (r *Repository) listSets(workoutSessionExerciseID string) ([]models.Set, er
 	var out []models.Set
 	for rows.Next() {
 		var s models.Set
-		if err := rows.Scan(&s.ID, &s.WorkoutSessionExerciseID, &s.SetNumber, &s.Reps, &s.WeightKg, &s.AssistKg); err != nil {
+		if err := rows.Scan(
+			&s.ID, &s.WorkoutSessionExerciseID, &s.SetNumber, &s.Reps, &s.WeightKg, &s.AssistKg, &s.DurationSec,
+		); err != nil {
 			return nil, fmt.Errorf("scan set: %w", err)
 		}
 		out = append(out, s)

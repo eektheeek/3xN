@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/eektheeek/dead-lift-project/diary-api/internal/models"
 	"github.com/eektheeek/dead-lift-project/diary-api/internal/repository"
 )
 
@@ -21,6 +22,7 @@ func NewAPI(repo *repository.Repository) *API {
 type createExerciseRequest struct {
 	Name           string `json:"name"`
 	MuscleGroup    string `json:"muscleGroup"`
+	Kind           string `json:"kind"`
 	SupportsAssist bool   `json:"supportsAssist"`
 	ProtocolID     string `json:"protocolId"`
 }
@@ -28,6 +30,7 @@ type createExerciseRequest struct {
 type setTargetRequest struct {
 	Sets     int     `json:"sets"`
 	Reps     int     `json:"reps"`
+	HoldSec  int     `json:"holdSec"`
 	WeightKg float64 `json:"weightKg"`
 	AssistKg float64 `json:"assistKg"`
 }
@@ -48,6 +51,7 @@ func (a *API) CreateExercise(w http.ResponseWriter, r *http.Request) {
 	ex, err := a.repo.CreateExercise(
 		req.Name,
 		strings.TrimSpace(req.MuscleGroup),
+		strings.TrimSpace(req.Kind),
 		req.SupportsAssist,
 		strings.TrimSpace(req.ProtocolID),
 	)
@@ -65,6 +69,7 @@ func (a *API) CreateExercise(w http.ResponseWriter, r *http.Request) {
 type updateExerciseRequest struct {
 	Name           string `json:"name"`
 	MuscleGroup    string `json:"muscleGroup"`
+	Kind           string `json:"kind"`
 	SupportsAssist bool   `json:"supportsAssist"`
 	ProtocolID     string `json:"protocolId"`
 }
@@ -92,6 +97,7 @@ func (a *API) UpdateExercise(w http.ResponseWriter, r *http.Request) {
 		id,
 		req.Name,
 		strings.TrimSpace(req.MuscleGroup),
+		strings.TrimSpace(req.Kind),
 		req.SupportsAssist,
 		strings.TrimSpace(req.ProtocolID),
 	)
@@ -149,22 +155,45 @@ func (a *API) SetTarget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
-	if req.Sets < 1 || req.Reps < 1 {
-		writeError(w, http.StatusBadRequest, "sets and reps must be >= 1")
+	if req.Sets < 1 {
+		writeError(w, http.StatusBadRequest, "sets must be >= 1")
 		return
 	}
 	if req.WeightKg < 0 || req.AssistKg < 0 {
 		writeError(w, http.StatusBadRequest, "weightKg and assistKg must be >= 0")
 		return
 	}
+	if req.Reps < 0 || req.HoldSec < 0 {
+		writeError(w, http.StatusBadRequest, "reps and holdSec must be >= 0")
+		return
+	}
 
-	target, err := a.repo.SetTarget(id, req.Sets, req.Reps, req.WeightKg, req.AssistKg)
+	ex, err := a.repo.GetExercise(id)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "exercise not found")
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to set target")
+		writeError(w, http.StatusInternalServerError, "failed to get exercise")
+		return
+	}
+	if ex.Kind == models.ExerciseKindHold {
+		if req.HoldSec < 1 {
+			writeError(w, http.StatusBadRequest, "holdSec must be >= 1 for hold exercises")
+			return
+		}
+	} else if req.Reps < 1 {
+		writeError(w, http.StatusBadRequest, "reps must be >= 1 for reps exercises")
+		return
+	}
+
+	target, err := a.repo.SetTarget(id, req.Sets, req.Reps, req.HoldSec, req.WeightKg, req.AssistKg)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "exercise not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, target)

@@ -1,10 +1,17 @@
 package models
 
+// Exercise kinds (catalog).
+const (
+	ExerciseKindReps = "reps"
+	ExerciseKindHold = "hold"
+)
+
 // Exercise is a catalog movement the user can log.
 type Exercise struct {
 	ID             string            `json:"id"`
 	Name           string            `json:"name"`
 	MuscleGroup    string            `json:"muscleGroup"`
+	Kind           string            `json:"kind"` // reps | hold
 	SupportsAssist bool              `json:"supportsAssist"`
 	ProtocolID     string            `json:"protocolId,omitempty"`
 	CreatedAt      string            `json:"createdAt"`
@@ -27,7 +34,8 @@ type IntervalProtocol struct {
 type ExerciseTarget struct {
 	ExerciseID string  `json:"exerciseId"`
 	TargetSets int     `json:"sets"`
-	TargetReps int     `json:"reps"`
+	TargetReps int     `json:"reps"`    // used when kind=reps
+	HoldSec    int     `json:"holdSec"` // used when kind=hold (seconds per set)
 	WeightKg   float64 `json:"weightKg"`
 	AssistKg   float64 `json:"assistKg"` // 0 when unused; only meaningful if exercise.supportsAssist
 }
@@ -76,6 +84,7 @@ type WorkoutSessionExercise struct {
 	ExerciseID       string `json:"exerciseId"`
 	Position         int    `json:"position"`
 	ExerciseName     string `json:"exerciseName,omitempty"`
+	Kind             string `json:"kind,omitempty"` // reps | hold
 	SupportsAssist   bool   `json:"supportsAssist,omitempty"`
 	Sets             []Set  `json:"sets,omitempty"`
 }
@@ -100,6 +109,7 @@ type Set struct {
 	WorkoutSessionExerciseID string  `json:"workoutSessionExerciseId"`
 	SetNumber                int     `json:"setNumber"`
 	Reps                     int     `json:"reps"`
+	DurationSec              int     `json:"durationSec"` // used when kind=hold
 	WeightKg                 float64 `json:"weightKg"`
 	AssistKg                 float64 `json:"assistKg"` // 0 when unused
 }

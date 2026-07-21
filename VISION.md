@@ -13,16 +13,17 @@ The library of saved templates remains available: any template can still be open
 1. Open app before or at the gym.
 2. Prefer **current step of a chosen cycle** (progress “Step X of N” + Start). Optionally open any saved session template from the library.
 3. Each exercise already has what it needs:
-   - load / reps guidance (targets; later math engine),
-   - interval protocol where relevant (warm-up, static holds, main work, tabata-style blocks).
-4. Run timers, log sets, finish session.
+   - **reps** kind: sets × reps + optional weight / assist,
+   - **hold** kind: sets × target hold seconds (static / mobility); log actual seconds per set,
+   - optional interval protocol (tabata) on either kind.
+4. Run timers, log sets (reps or seconds), finish session.
 5. System records facts; when the finished session was the **current step of that cycle**, advance the cursor. Analytics / next recommendations come later.
 
 ## Planning vs execution
 
 | Layer | Purpose |
 |-------|---------|
-| **Exercise** | Movement + sets + optional `IntervalProtocol` (work/rest, `protocolId`, `displayName`) |
+| **Exercise** | Movement with kind `reps` \| `hold` + optional `IntervalProtocol` (tabata still attachable to either) |
 | **Session template** (`workout_plan`) | Saved ordered stack of exercises for one gym visit (reusable) |
 | **Cycle** | Named ordered list of session templates + **cursor** (current step). Anti-calendar: no Mon/Wed grid. Multiple cycles OK (home / outdoor) |
 | **Session** | One gym visit fact: logged sets, duration, timestamps |
@@ -55,6 +56,7 @@ Two stack levels. The session level already exists in product; **cycles** are th
 - Dedicated **exercise catalog** (not only ad-hoc names per session).
 - Exercises always at hand when building a workout: search, filter, favorites.
 - Catalog is shared across planning and gym execution.
+- **v1.1 kinds:** `reps` (strength / bodyweight with optional assist) and `hold` (timed holds; target and log in seconds; session stats = sum of hold seconds).
 
 ### Session stack (builder UX) — existing
 
@@ -99,3 +101,4 @@ Two stack levels. The session level already exists in product; **cycles** are th
 | 2026-05-28 | UI builder: exercise catalog, session stack, attach tabata per exercise, save stacks for multi-week planning |
 | 2026-07-20 | Added **training cycles** (multi, named) on top of session templates; preferred gym path = current step of a cycle (anti-calendar). Diary remains history. Recovery windows / branches stay in backlog |
 | 2026-07-20 | Renamed program→cycle; removed singleton `main` id |
+| 2026-07-21 | **v1.1:** exercise kinds `reps` \| `hold`. Hold = multi-set timed goals (e.g. 3×60s) with optional load weight; log actual seconds (+ kg) per set; stats = total hold time as ч/м/с. Assist stays for reps. Tabata attachable as before. No dedicated hold start/stop timer in v1.1 (manual seconds). |

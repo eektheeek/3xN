@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import type { Exercise, WorkoutSession } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { formatSessionDateTime, formatDurationLabel } from '../utils/dates';
-import { formatExerciseStats } from '../utils/workoutStats';
+import { formatExerciseStats, formatTargetLabel } from '../utils/workoutStats';
 
 interface DiarySessionDetailProps extends RoutableProps {
   id?: string;
@@ -82,7 +82,9 @@ export function DiarySessionDetail({ id }: DiarySessionDetailProps) {
             const target = exercise?.target;
             const name = block.exerciseName || exercise?.name || 'Упражнение';
             const sets = block.sets ?? [];
+            const kind = block.kind ?? exercise?.kind ?? 'reps';
             const supportsAssist = block.supportsAssist ?? exercise?.supportsAssist ?? false;
+            const isHold = kind === 'hold';
 
             return (
               <section key={block.id} class="exercise-block">
@@ -91,36 +93,44 @@ export function DiarySessionDetail({ id }: DiarySessionDetailProps) {
                 </div>
                 {target && (
                   <p class="muted exercise-block__goal">
-                    Цель: {target.sets}×{target.reps}
-                    {target.assistKg > 0 ? ` · резинка ${target.assistKg} кг` : ''}
-                    {target.weightKg > 0 ? ` · ${target.weightKg} кг` : ''}
+                    Цель: {formatTargetLabel(target, { kind, supportsAssist })}
                   </p>
                 )}
                 <p class="exercise-block__stats">
-                  {formatExerciseStats(sets, !supportsAssist)}
+                  {formatExerciseStats(sets, {
+                    kind,
+                    withTonnage: !isHold && !supportsAssist,
+                  })}
                 </p>
                 {sets.map((set) => {
-                  const repsMet = target != null && set.reps >= target.reps;
+                  const goalMet = isHold
+                    ? target != null && set.durationSec >= target.holdSec
+                    : target != null && set.reps >= target.reps;
                   return (
                     <div
                       key={set.id}
-                      class={`set-row set-row--readonly${repsMet ? ' set-row--done' : ''}`}
+                      class={`set-row set-row--readonly${goalMet ? ' set-row--done' : ''}`}
                     >
                       <div class="set-row__head">
                         <span class="set-row__label">Подход {set.setNumber}</span>
                         {target && (
-                          <span class={`set-row__plan${repsMet ? ' set-row__plan--done' : ''}`}>
-                            план {target.reps}
+                          <span class={`set-row__plan${goalMet ? ' set-row__plan--done' : ''}`}>
+                            план {isHold ? `${target.holdSec}с` : target.reps}
                           </span>
                         )}
                       </div>
                       <div class="set-row__fact">
                         <span class="set-row__fact-label">Факт</span>
-                        <strong class={repsMet ? 'input--goal-met-text' : undefined}>{set.reps}</strong>
-                        {!supportsAssist && (
+                        <strong class={goalMet ? 'input--goal-met-text' : undefined}>
+                          {isHold ? `${set.durationSec}с` : set.reps}
+                        </strong>
+                        {isHold && set.weightKg > 0 && (
                           <span class="muted"> · {set.weightKg} кг</span>
                         )}
-                        {supportsAssist && (
+                        {!isHold && !supportsAssist && (
+                          <span class="muted"> · {set.weightKg} кг</span>
+                        )}
+                        {!isHold && supportsAssist && (
                           <span class="muted"> · рез. {set.assistKg} кг</span>
                         )}
                       </div>

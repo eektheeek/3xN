@@ -20,10 +20,11 @@ type createWorkoutSessionExerciseRequest struct {
 }
 
 type createSetRequest struct {
-	SetNumber int     `json:"setNumber"`
-	Reps      int     `json:"reps"`
-	WeightKg  float64 `json:"weightKg"`
-	AssistKg  float64 `json:"assistKg"`
+	SetNumber   int     `json:"setNumber"`
+	Reps        int     `json:"reps"`
+	DurationSec int     `json:"durationSec"`
+	WeightKg    float64 `json:"weightKg"`
+	AssistKg    float64 `json:"assistKg"`
 }
 
 // CreateWorkoutSession handles POST /v1/workout-sessions.
@@ -54,15 +55,16 @@ func (a *API) CreateWorkoutSession(w http.ResponseWriter, r *http.Request) {
 		}
 		sets := make([]repository.CreateSetInput, 0, len(ex.Sets))
 		for _, s := range ex.Sets {
-			if s.SetNumber < 1 || s.Reps < 0 || s.WeightKg < 0 || s.AssistKg < 0 {
+			if s.SetNumber < 1 || s.Reps < 0 || s.DurationSec < 0 || s.WeightKg < 0 || s.AssistKg < 0 {
 				writeError(w, http.StatusBadRequest, "invalid set fields")
 				return
 			}
 			sets = append(sets, repository.CreateSetInput{
-				SetNumber: s.SetNumber,
-				Reps:      s.Reps,
-				WeightKg:  s.WeightKg,
-				AssistKg:  s.AssistKg,
+				SetNumber:   s.SetNumber,
+				Reps:        s.Reps,
+				DurationSec: s.DurationSec,
+				WeightKg:    s.WeightKg,
+				AssistKg:    s.AssistKg,
 			})
 		}
 		in.Exercises = append(in.Exercises, repository.CreateWorkoutSessionExerciseInput{
@@ -204,15 +206,16 @@ func (a *API) SaveSessionExercise(w http.ResponseWriter, r *http.Request) {
 
 	sets := make([]repository.CreateSetInput, 0, len(req.Sets))
 	for _, s := range req.Sets {
-		if s.SetNumber < 1 || s.Reps < 0 || s.WeightKg < 0 || s.AssistKg < 0 {
+		if s.SetNumber < 1 || s.Reps < 0 || s.DurationSec < 0 || s.WeightKg < 0 || s.AssistKg < 0 {
 			writeError(w, http.StatusBadRequest, "invalid set fields")
 			return
 		}
 		sets = append(sets, repository.CreateSetInput{
-			SetNumber: s.SetNumber,
-			Reps:      s.Reps,
-			WeightKg:  s.WeightKg,
-			AssistKg:  s.AssistKg,
+			SetNumber:   s.SetNumber,
+			Reps:        s.Reps,
+			DurationSec: s.DurationSec,
+			WeightKg:    s.WeightKg,
+			AssistKg:    s.AssistKg,
 		})
 	}
 

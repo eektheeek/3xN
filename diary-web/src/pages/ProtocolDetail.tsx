@@ -110,15 +110,15 @@ export function ProtocolDetail({ id }: ProtocolDetailProps) {
           </label>
           <label class="field">
             <span>Подготовка, сек</span>
-            <input name="prepareSec" type="number" min="0" required defaultValue={protocol.prepareSec} />
+            <input name="prepareSec" type="number" inputMode="numeric" min="0" required defaultValue={protocol.prepareSec} />
           </label>
           <label class="field">
             <span>Работа, сек</span>
-            <input name="workSec" type="number" min="1" required defaultValue={protocol.workSec} />
+            <input name="workSec" type="number" inputMode="numeric" min="1" required defaultValue={protocol.workSec} />
           </label>
           <label class="field">
             <span>Отдых, сек</span>
-            <input name="restSec" type="number" min="0" required defaultValue={protocol.restSec} />
+            <input name="restSec" type="number" inputMode="numeric" min="0" required defaultValue={protocol.restSec} />
           </label>
           <label class="field field--checkbox">
             <input name="warmupExtra" type="checkbox" defaultChecked={protocol.warmupExtra} />

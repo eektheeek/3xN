@@ -48,15 +48,15 @@ export function ProtocolNew(_props: RoutableProps) {
         </label>
         <label class="field">
           <span>Подготовка, сек</span>
-          <input name="prepareSec" type="number" min="0" required defaultValue={5} />
+          <input name="prepareSec" type="number" inputMode="numeric" min="0" required defaultValue={5} />
         </label>
         <label class="field">
           <span>Работа, сек</span>
-          <input name="workSec" type="number" min="1" required defaultValue={40} />
+          <input name="workSec" type="number" inputMode="numeric" min="1" required defaultValue={40} />
         </label>
         <label class="field">
           <span>Отдых, сек</span>
-          <input name="restSec" type="number" min="0" required defaultValue={20} />
+          <input name="restSec" type="number" inputMode="numeric" min="0" required defaultValue={20} />
         </label>
         <label class="field field--checkbox">
           <input name="warmupExtra" type="checkbox" />

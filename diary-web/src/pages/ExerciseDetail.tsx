@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { RoutableProps } from 'preact-router';
 import { api } from '../api/client';
-import type { Exercise, IntervalProtocol, SetTargetBody } from '../types';
+import type { Exercise, ExerciseKind, IntervalProtocol, SetTargetBody } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { TargetForm } from '../components/TargetForm';
 import { tabataRounds } from '../utils/beep';
+import { formatTargetLabel } from '../utils/workoutStats';
 
 interface ExerciseDetailProps extends RoutableProps {
   id?: string;
@@ -17,6 +18,7 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
   const [loading, setLoading] = useState(true);
   const [showTargetForm, setShowTargetForm] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [editKind, setEditKind] = useState<ExerciseKind>('reps');
   const [submitting, setSubmitting] = useState(false);
   const [savingMeta, setSavingMeta] = useState(false);
   const [savingProtocol, setSavingProtocol] = useState(false);
@@ -27,6 +29,7 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
     Promise.all([api.getExercise(id), api.listIntervalProtocols()])
       .then(([ex, list]) => {
         setExercise(ex);
+        setEditKind(ex.kind ?? 'reps');
         setProtocols(list);
         setShowTargetForm(!ex.target);
       })
@@ -55,16 +58,19 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
     if (!id || !exercise) return;
     const form = e.target as HTMLFormElement;
     const data = new FormData(form);
+    const kind = (String(data.get('kind')) as ExerciseKind) || 'reps';
     setSavingMeta(true);
     setError('');
     try {
       const ex = await api.updateExercise(id, {
         name: String(data.get('name')).trim(),
         muscleGroup: String(data.get('muscleGroup') ?? '').trim(),
-        supportsAssist: data.get('supportsAssist') === 'on',
+        kind,
+        supportsAssist: kind === 'reps' && data.get('supportsAssist') === 'on',
         protocolId: exercise.protocolId ?? '',
       });
       setExercise(ex);
+      setEditKind(ex.kind ?? 'reps');
       setEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить');
@@ -81,6 +87,7 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
       const ex = await api.updateExercise(id, {
         name: exercise.name,
         muscleGroup: exercise.muscleGroup,
+        kind: exercise.kind ?? 'reps',
         supportsAssist: exercise.supportsAssist,
         protocolId,
       });
@@ -103,6 +110,7 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
   const sets = exercise?.target?.sets ?? 0;
   const rounds =
     exercise?.protocol && sets > 0 ? tabataRounds(sets, exercise.protocol.warmupExtra) : null;
+  const kind = exercise?.kind ?? 'reps';
 
   return (
     <div class="page">
@@ -126,9 +134,20 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
               </p>
               {exercise.muscleGroup && <p class="muted">{exercise.muscleGroup}</p>}
               <p class="muted" style="margin-bottom:0.75rem">
-                {exercise.supportsAssist ? 'С резинкой (assist)' : 'Классическое (без assist)'}
+                {kind === 'hold'
+                  ? 'Удержание (статика)'
+                  : exercise.supportsAssist
+                    ? 'Повторы · с резинкой (assist)'
+                    : 'Повторы · классическое'}
               </p>
-              <button type="button" class="btn btn-secondary" onClick={() => setEditing(true)}>
+              <button
+                type="button"
+                class="btn btn-secondary"
+                onClick={() => {
+                  setEditKind(kind);
+                  setEditing(true);
+                }}
+              >
                 Редактировать
               </button>
             </section>
@@ -145,10 +164,36 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
                 <span>Группа мышц</span>
                 <input name="muscleGroup" type="text" defaultValue={exercise.muscleGroup} placeholder="спина" />
               </label>
-              <label class="field field--checkbox">
-                <input name="supportsAssist" type="checkbox" defaultChecked={exercise.supportsAssist} />
-                <span>С резинкой (assist)</span>
-              </label>
+              <div class="field">
+                <span class="field__label">Тип упражнения</span>
+                <div class="kind-picker" role="radiogroup" aria-label="Тип упражнения">
+                  <button
+                    type="button"
+                    class={`kind-picker__option${editKind === 'reps' ? ' kind-picker__option--active' : ''}`}
+                    aria-pressed={editKind === 'reps'}
+                    onClick={() => setEditKind('reps')}
+                  >
+                    <strong>Повторы</strong>
+                    <span>сила, вес</span>
+                  </button>
+                  <button
+                    type="button"
+                    class={`kind-picker__option${editKind === 'hold' ? ' kind-picker__option--active' : ''}`}
+                    aria-pressed={editKind === 'hold'}
+                    onClick={() => setEditKind('hold')}
+                  >
+                    <strong>Удержание</strong>
+                    <span>статика, секунды</span>
+                  </button>
+                </div>
+                <input type="hidden" name="kind" value={editKind} />
+              </div>
+              {editKind === 'reps' && (
+                <label class="field field--checkbox">
+                  <input name="supportsAssist" type="checkbox" defaultChecked={exercise.supportsAssist} />
+                  <span>С резинкой (assist)</span>
+                </label>
+              )}
               <div class="actions" style="display:flex;gap:0.5rem;flex-wrap:wrap">
                 <button type="submit" class="btn btn-primary" disabled={savingMeta}>
                   {savingMeta ? 'Сохранение…' : 'Сохранить'}
@@ -209,10 +254,10 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
             <section class="card">
               <h2 class="card__title">Текущая цель</h2>
               <p>
-                {exercise.target.sets}×{exercise.target.reps} · {exercise.target.weightKg} кг
-                {exercise.supportsAssist && exercise.target.assistKg > 0
-                  ? ` · резинка ${exercise.target.assistKg} кг`
-                  : ''}
+                {formatTargetLabel(exercise.target, {
+                  kind,
+                  supportsAssist: exercise.supportsAssist,
+                })}
               </p>
               <button type="button" class="btn btn-secondary" onClick={() => setShowTargetForm(true)}>
                 Изменить цель
@@ -227,9 +272,11 @@ export function ExerciseDetail({ id }: ExerciseDetailProps) {
                 initial={{
                   sets: exercise.target?.sets ?? 3,
                   reps: exercise.target?.reps ?? 12,
+                  holdSec: exercise.target?.holdSec ?? 60,
                   weightKg: exercise.target?.weightKg ?? 0,
                   assistKg: exercise.target?.assistKg ?? 0,
                 }}
+                kind={kind}
                 supportsAssist={exercise.supportsAssist}
                 onSubmit={handleSetTarget}
                 submitting={submitting}

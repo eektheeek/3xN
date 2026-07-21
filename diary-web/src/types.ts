@@ -1,7 +1,10 @@
+export type ExerciseKind = 'reps' | 'hold';
+
 export interface ExerciseTarget {
   exerciseId: string;
   sets: number;
   reps: number;
+  holdSec: number;
   weightKg: number;
   assistKg: number;
 }
@@ -10,6 +13,7 @@ export interface Exercise {
   id: string;
   name: string;
   muscleGroup: string;
+  kind: ExerciseKind;
   supportsAssist: boolean;
   protocolId?: string;
   createdAt: string;
@@ -47,6 +51,7 @@ export interface Set {
   workoutSessionExerciseId: string;
   setNumber: number;
   reps: number;
+  durationSec: number;
   weightKg: number;
   assistKg: number;
 }
@@ -57,6 +62,7 @@ export interface WorkoutSessionExercise {
   exerciseId: string;
   position: number;
   exerciseName?: string;
+  kind?: ExerciseKind;
   supportsAssist?: boolean;
   sets?: Set[];
 }
@@ -119,6 +125,7 @@ export interface ReplaceCycleStepsBody {
 export interface CreateExerciseBody {
   name: string;
   muscleGroup?: string;
+  kind?: ExerciseKind;
   supportsAssist?: boolean;
   protocolId?: string;
 }
@@ -138,6 +145,7 @@ export type UpdateIntervalProtocolBody = CreateIntervalProtocolBody;
 export interface SetTargetBody {
   sets: number;
   reps: number;
+  holdSec: number;
   weightKg: number;
   assistKg: number;
 }
@@ -145,6 +153,7 @@ export interface SetTargetBody {
 export interface CreateSetBody {
   setNumber: number;
   reps: number;
+  durationSec: number;
   weightKg: number;
   assistKg: number;
 }

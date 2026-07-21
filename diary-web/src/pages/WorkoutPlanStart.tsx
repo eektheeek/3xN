@@ -9,7 +9,7 @@ import { ErrorBanner } from '../components/ErrorBanner';
 import { SetRow } from '../components/SetRow';
 import { TabataTimer } from '../components/TabataTimer';
 import { formatDuration } from '../utils/dates';
-import { formatExerciseStats } from '../utils/workoutStats';
+import { formatExerciseStats, formatTargetLabel } from '../utils/workoutStats';
 import { preloadTabataAudio, unlockAudio } from '../utils/beep';
 
 interface WorkoutPlanStartProps extends RoutableProps {
@@ -23,12 +23,15 @@ type ExerciseLog = {
 
 function defaultSets(exercise: Exercise): CreateSetBody[] {
   const n = exercise.target?.sets ?? 3;
-  const reps = exercise.target?.reps ?? 12;
+  const isHold = exercise.kind === 'hold';
+  const reps = isHold ? 0 : (exercise.target?.reps ?? 12);
+  const durationSec = isHold ? (exercise.target?.holdSec ?? 60) : 0;
   const weightKg = exercise.target?.weightKg ?? 0;
-  const assistKg = exercise.target?.assistKg ?? 0;
+  const assistKg = isHold ? 0 : (exercise.target?.assistKg ?? 0);
   return Array.from({ length: n }, (_, i) => ({
     setNumber: i + 1,
     reps,
+    durationSec,
     weightKg,
     assistKg,
   }));
@@ -36,12 +39,19 @@ function defaultSets(exercise: Exercise): CreateSetBody[] {
 
 function setsFromSession(
   exercise: Exercise,
-  savedSets: { setNumber: number; reps: number; weightKg: number; assistKg: number }[],
+  savedSets: {
+    setNumber: number;
+    reps: number;
+    durationSec?: number;
+    weightKg: number;
+    assistKg: number;
+  }[],
 ): CreateSetBody[] {
   if (savedSets.length === 0) return defaultSets(exercise);
   return savedSets.map((s) => ({
     setNumber: s.setNumber,
     reps: s.reps,
+    durationSec: s.durationSec ?? 0,
     weightKg: s.weightKg,
     assistKg: s.assistKg,
   }));
@@ -101,6 +111,7 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
                 sets: ex.sets?.map((s) => ({
                   setNumber: s.setNumber,
                   reps: s.reps,
+                  durationSec: s.durationSec ?? 0,
                   weightKg: s.weightKg,
                   assistKg: s.assistKg,
                 })),
@@ -295,10 +306,11 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
                   </div>
                   {log.exercise.target && (
                     <p class="muted exercise-block__goal">
-                      Цель: {log.exercise.target.sets}×{log.exercise.target.reps}
-                      {log.exercise.target.assistKg > 0
-                        ? ` · резинка ${log.exercise.target.assistKg} кг`
-                        : ''}
+                      Цель:{' '}
+                      {formatTargetLabel(log.exercise.target, {
+                        kind: log.exercise.kind ?? 'reps',
+                        supportsAssist: log.exercise.supportsAssist,
+                      })}
                     </p>
                   )}
                   {!log.exercise.target && (
@@ -307,7 +319,10 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
                     </p>
                   )}
                   <p class="exercise-block__stats">
-                    {formatExerciseStats(log.sets, !log.exercise.supportsAssist)}
+                    {formatExerciseStats(log.sets, {
+                      kind: log.exercise.kind ?? 'reps',
+                      withTonnage: (log.exercise.kind ?? 'reps') !== 'hold' && !log.exercise.supportsAssist,
+                    })}
                   </p>
                   {canTabata && protocol && !tabataOpen && (
                     <button
@@ -336,8 +351,10 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
                       key={s.setNumber}
                       setNumber={s.setNumber}
                       value={s}
+                      kind={log.exercise.kind ?? 'reps'}
                       supportsAssist={log.exercise.supportsAssist}
                       targetReps={log.exercise.target?.reps}
+                      targetHoldSec={log.exercise.target?.holdSec}
                       targetAssistKg={log.exercise.target?.assistKg}
                       onChange={(next) => {
                         const sets = [...log.sets];

@@ -1,6 +1,7 @@
-import type { CreateSetBody, Set } from '../types';
+import type { CreateSetBody, ExerciseKind, Set, SetTargetBody } from '../types';
+import { formatDurationLabel } from './dates';
 
-type SetLike = Pick<Set, 'reps' | 'weightKg'> | CreateSetBody;
+type SetLike = Pick<Set, 'reps' | 'weightKg' | 'durationSec'> | CreateSetBody;
 
 export function countSets(sets: SetLike[]): number {
   return sets.length;
@@ -9,6 +10,11 @@ export function countSets(sets: SetLike[]): number {
 /** Total reps across all sets. */
 export function calcTotalReps(sets: SetLike[]): number {
   return sets.reduce((sum, s) => sum + s.reps, 0);
+}
+
+/** Total hold seconds across all sets. */
+export function calcTotalHoldSec(sets: SetLike[]): number {
+  return sets.reduce((sum, s) => sum + (s.durationSec ?? 0), 0);
 }
 
 /** Volume load for classic (non-assist) exercises: Σ(reps × weightKg). */
@@ -21,10 +27,46 @@ export function formatTonnage(kg: number): string {
   return `${kg.toFixed(1)} кг`;
 }
 
-export function formatExerciseStats(sets: SetLike[], withTonnage: boolean): string {
+export function formatExerciseStats(
+  sets: SetLike[],
+  opts: { kind?: ExerciseKind; withTonnage?: boolean } = {},
+): string {
+  const kind = opts.kind ?? 'reps';
+  if (kind === 'hold') {
+    const total = calcTotalHoldSec(sets);
+    const parts = [`Подходов: ${countSets(sets)}`, `Время: ${formatDurationLabel(total) || '0с'}`];
+    const weights = sets.map((s) => s.weightKg).filter((w) => w > 0);
+    if (weights.length > 0) {
+      const maxW = Math.max(...weights);
+      parts.push(Number.isInteger(maxW) ? `${maxW} кг` : `${maxW.toFixed(1)} кг`);
+    }
+    return parts.join(' · ');
+  }
   const parts = [`Подходов: ${countSets(sets)}`, `Повторов: ${calcTotalReps(sets)}`];
-  if (withTonnage) {
+  if (opts.withTonnage) {
     parts.push(`Тоннаж: ${formatTonnage(calcTonnage(sets))}`);
   }
   return parts.join(' · ');
+}
+
+export function formatTargetLabel(
+  target: Pick<SetTargetBody, 'sets' | 'reps' | 'holdSec' | 'weightKg' | 'assistKg'>,
+  opts: { kind?: ExerciseKind; supportsAssist?: boolean },
+): string {
+  if (opts.kind === 'hold') {
+    let label = `${target.sets}×${target.holdSec}с`;
+    if (target.weightKg > 0) {
+      label += Number.isInteger(target.weightKg)
+        ? ` · ${target.weightKg} кг`
+        : ` · ${target.weightKg.toFixed(1)} кг`;
+    }
+    return label;
+  }
+  let label = `${target.sets}×${target.reps}`;
+  if (opts.supportsAssist && target.assistKg > 0) {
+    label += ` · резинка ${target.assistKg} кг`;
+  } else if (target.weightKg > 0) {
+    label += ` · ${target.weightKg} кг`;
+  }
+  return label;
 }

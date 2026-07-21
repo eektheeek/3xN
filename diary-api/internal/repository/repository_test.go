@@ -17,7 +17,7 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 
 	repo := repository.New(sqlDB)
 
-	ex, err := repo.CreateExercise("Wide grip pull-up", "back", true, "")
+	ex, err := repo.CreateExercise("Wide grip pull-up", "back", "reps", true, "")
 	if err != nil {
 		t.Fatalf("create exercise: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 		t.Fatalf("create protocol: %v", err)
 	}
 
-	target, err := repo.SetTarget(ex.ID, 3, 12, 0, 25)
+	target, err := repo.SetTarget(ex.ID, 3, 12, 0, 0, 25)
 	if err != nil {
 		t.Fatalf("set target: %v", err)
 	}
@@ -48,8 +48,11 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 	if got.Target == nil || got.Target.AssistKg != 25 {
 		t.Fatalf("expected target on exercise, got %+v", got)
 	}
+	if got.Kind != "reps" {
+		t.Fatalf("expected kind reps, got %+v", got)
+	}
 
-	updated, err := repo.UpdateExercise(ex.ID, "Pull-up", "back", false, proto.ID)
+	updated, err := repo.UpdateExercise(ex.ID, "Pull-up", "back", "reps", false, proto.ID)
 	if err != nil {
 		t.Fatalf("update exercise: %v", err)
 	}
@@ -127,6 +130,9 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 	if loaded.Exercises[0].ExerciseName != "Pull-up" {
 		t.Fatalf("expected exercise name on session exercise, got %+v", loaded.Exercises[0])
 	}
+	if loaded.Exercises[0].Kind != "reps" {
+		t.Fatalf("expected kind reps on session exercise, got %+v", loaded.Exercises[0])
+	}
 
 	fullSession, err := repo.CreateWorkoutSession(repository.CreateWorkoutSessionInput{
 		PerformedAt: "2026-07-16T19:00:00Z",
@@ -156,7 +162,7 @@ func TestCycleStepsAndAdvance(t *testing.T) {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	repo := repository.New(sqlDB)
 
-	ex, err := repo.CreateExercise("Squat", "legs", false, "")
+	ex, err := repo.CreateExercise("Squat", "legs", "reps", false, "")
 	if err != nil {
 		t.Fatalf("create exercise: %v", err)
 	}
@@ -330,3 +336,60 @@ func TestCycleStepsAndAdvance(t *testing.T) {
 		t.Fatalf("expected workoutPlanId %s, got %q", planB.ID, loaded.WorkoutPlanID)
 	}
 }
+
+func TestHoldExerciseTargetAndSets(t *testing.T) {
+	sqlDB, err := db.Open(filepath.Join(t.TempDir(), "hold.db"), filepath.Join("..", "..", "migrations"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	repo := repository.New(sqlDB)
+
+	ex, err := repo.CreateExercise("Bridge hold", "core", "hold", true, "")
+	if err != nil {
+		t.Fatalf("create hold exercise: %v", err)
+	}
+	if ex.Kind != "hold" || ex.SupportsAssist {
+		t.Fatalf("hold should force assist off: %+v", ex)
+	}
+
+	target, err := repo.SetTarget(ex.ID, 3, 12, 60, 10, 5)
+	if err != nil {
+		t.Fatalf("set hold target: %v", err)
+	}
+	if target.HoldSec != 60 || target.TargetReps != 0 || target.WeightKg != 10 || target.AssistKg != 0 {
+		t.Fatalf("unexpected hold target: %+v", target)
+	}
+
+	session, err := repo.StartWorkoutSession("2026-07-21T12:00:00Z", false, "")
+	if err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	block, err := repo.SaveSessionExercise(session.ID, 1, ex.ID, []repository.CreateSetInput{
+		{SetNumber: 1, DurationSec: 60},
+		{SetNumber: 2, DurationSec: 45},
+		{SetNumber: 3, DurationSec: 50},
+	})
+	if err != nil {
+		t.Fatalf("save hold sets: %v", err)
+	}
+	if len(block.Sets) != 3 || block.Sets[1].DurationSec != 45 {
+		t.Fatalf("unexpected hold sets: %+v", block.Sets)
+	}
+
+	loaded, err := repo.GetWorkoutSession(session.ID)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if loaded.Exercises[0].Kind != "hold" {
+		t.Fatalf("expected hold kind on block: %+v", loaded.Exercises[0])
+	}
+	sum := 0
+	for _, s := range loaded.Exercises[0].Sets {
+		sum += s.DurationSec
+	}
+	if sum != 155 {
+		t.Fatalf("expected total hold 155s, got %d", sum)
+	}
+}
+

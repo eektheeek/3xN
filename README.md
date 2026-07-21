@@ -2,6 +2,8 @@
 
 Training diary product. Product vision: [VISION.md](VISION.md).
 
+Session templates (`workout_plans`) and named **training cycles** (ordered templates + current step, e.g. home vs outdoor) — see vision. Recovery windows come later.
+
 ## Stack
 
 | Path | Role |

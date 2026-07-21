@@ -34,13 +34,34 @@ type ExerciseTarget struct {
 
 // WorkoutSession is one gym visit / training day.
 type WorkoutSession struct {
-	ID          string                   `json:"id"`
-	PerformedAt string                   `json:"performedAt"`
-	StartedAt   string                   `json:"startedAt,omitempty"`
-	DurationSec int                      `json:"durationSec"`
-	IsDeload    bool                     `json:"isDeload"`
-	CreatedAt   string                   `json:"createdAt"`
-	Exercises   []WorkoutSessionExercise `json:"exercises,omitempty"`
+	ID            string                   `json:"id"`
+	PerformedAt   string                   `json:"performedAt"`
+	StartedAt     string                   `json:"startedAt,omitempty"`
+	DurationSec   int                      `json:"durationSec"`
+	IsDeload      bool                     `json:"isDeload"`
+	WorkoutPlanID string                   `json:"workoutPlanId,omitempty"`
+	CreatedAt     string                   `json:"createdAt"`
+	Exercises     []WorkoutSessionExercise `json:"exercises,omitempty"`
+}
+
+// Cycle is a named sequential track of session templates (e.g. "Дом", "Улица").
+type Cycle struct {
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
+	CurrentStep int         `json:"currentStep"` // 1-based; currentStep > len(steps) means completed
+	Completed   bool        `json:"completed"`   // true when all steps finished
+	OnHome      bool        `json:"onHome"`      // shown on the home screen
+	CreatedAt   string      `json:"createdAt"`
+	Steps       []CycleStep `json:"steps"`
+}
+
+// CycleStep is one slot in a training cycle.
+type CycleStep struct {
+	ID              string `json:"id"`
+	CycleID         string `json:"cycleId"`
+	Position        int    `json:"position"`
+	WorkoutPlanID   string `json:"workoutPlanId"`
+	WorkoutPlanName string `json:"workoutPlanName,omitempty"`
 }
 
 // WorkoutSessionExercise is one exercise block inside a workout session.

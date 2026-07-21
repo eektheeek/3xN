@@ -4,26 +4,29 @@ This file captures the global product idea. Extend it when new decisions or idea
 
 ## Core idea
 
-The user plans training in advance (week or month) from a library of exercises and saved interval protocols. At the gym they do not think about structure — they open the app and either follow the planned session or pick which planned workout to run today.
+The user builds reusable **session templates** (ordered exercises + optional interval protocols) and assembles them into one or more **training cycles** — sequential tracks of workouts (Step 1…N), e.g. “Дом” and “Улица”. At the gym the preferred path is: pick a cycle → see the **current step** → run it. Skipping ahead is not part of the main flow; if the user rests for a week, the same current step simply waits.
+
+The library of saved templates remains available: any template can still be opened outside a cycle cursor when needed.
 
 ## Gym-day flow
 
 1. Open app before or at the gym.
-2. See today’s planned workout (or choose one from the weekly/monthly plan).
+2. Prefer **current step of a chosen cycle** (progress “Step X of N” + Start). Optionally open any saved session template from the library.
 3. Each exercise already has what it needs:
-   - load / reps guidance (from math engine),
+   - load / reps guidance (targets; later math engine),
    - interval protocol where relevant (warm-up, static holds, main work, tabata-style blocks).
 4. Run timers, log sets, finish session.
-5. System records facts and updates analytics / next recommendations.
+5. System records facts; when the finished session was the **current step of that cycle**, advance the cursor. Analytics / next recommendations come later.
 
 ## Planning vs execution
 
 | Layer | Purpose |
 |-------|---------|
-| **Plan** | Week/month program: which exercises, which days, which saved protocols |
-| **Session** | One gym visit: ordered exercises with pre-attached protocols |
 | **Exercise** | Movement + sets + optional `IntervalProtocol` (work/rest, `protocolId`, `displayName`) |
-| **Math engine** | Pure calculation: metrics, fatigue, weight recommendations — no UI/DB |
+| **Session template** (`workout_plan`) | Saved ordered stack of exercises for one gym visit (reusable) |
+| **Cycle** | Named ordered list of session templates + **cursor** (current step). Anti-calendar: no Mon/Wed grid. Multiple cycles OK (home / outdoor) |
+| **Session** | One gym visit fact: logged sets, duration, timestamps |
+| **Math engine** | Pure calculation: metrics, fatigue, weight recommendations — no UI/DB (future) |
 
 ## Interval protocols (tabata-like)
 
@@ -35,8 +38,8 @@ The user plans training in advance (week or month) from a library of exercises a
 ## Personal constraints (v1 persona, extensible later)
 
 - ~3 sessions per week, recovery-first.
-- Progression: `% of e1RM` with adaptive load reduction when under-recovered.
-- Deload: `3 load weeks + 1 deload week` (configurable via policy, not hardcoded to one user in code).
+- Progression: `% of e1RM` with adaptive load reduction when under-recovered (future).
+- Deload / recovery **windows** and light/rehab **branches** (git-like merge) — future; not required for program-stack assembly.
 
 ## What we are NOT building in math-engine
 
@@ -45,46 +48,48 @@ The user plans training in advance (week or month) from a library of exercises a
 
 ## UI: workout builder (stack model)
 
-Future client UI is required to compose workouts without manual re-planning every day.
+Two stack levels. The session level already exists in product; **cycles** are the next build.
 
-### Exercise library (separate database)
+### Exercise library
 
 - Dedicated **exercise catalog** (not only ad-hoc names per session).
 - Exercises always at hand when building a workout: search, filter, favorites.
-- Catalog is shared across planning and gym execution (same IDs as in math-engine input).
+- Catalog is shared across planning and gym execution.
 
-### Session stack (builder UX)
+### Session stack (builder UX) — existing
 
-- Planning screen behaves like a **stack**: user adds exercises from the catalog into an ordered list for one training session.
+- User adds exercises from the catalog into an ordered list for one training session.
 - Order in the stack = execution order in the gym.
 - Per stack item (exercise):
-  - attach optional **saved tabata / interval protocol** (warm-up, static, main work, finisher),
+  - attach optional **saved tabata / interval protocol**,
   - or leave without timer (strength-style sets only).
-- Visual metaphor: “pile” exercises on top of each other → one ready session template.
+- A completed session stack is a **saved workout template** (`workout_plan`).
 
-### Saved stacks and multi-week planning
+### Training cycle (builder UX) — next
 
-- A completed stack is a **saved workout template** (reusable session definition).
-- User can assign saved stacks to calendar slots (week or month view).
-- Goal: plan several weeks ahead once, then at the gym only pick “today’s stack” or override if needed.
-- No need to re-enter work/rest or hunt exercises each visit.
+- User creates named cycles and orders saved session templates into Steps 1…N.
+- Home can highlight the **current** step of a selected cycle; finishing it advances that cycle’s cursor.
+- Diary calendar stays a **history** of performed sessions, not a week planner.
 
-### Gym execution UI (ties to stack)
+### Gym execution UI
 
-- Open planned stack → run through exercises in order.
-- Timers pre-filled from attached protocols; log sets/weight as you go.
-- Math engine consumes session facts after completion.
+- Open current (or chosen) template → run through exercises in order.
+- Timers from attached protocols; log sets/weight as you go.
+- Math engine consumes session facts after completion (later).
 
 ## Open backlog (ideas to refine)
 
-- [ ] Program templates (4–6 week blocks) vs ad-hoc weekly plans
-- [ ] “Suggested protocols” from history (most used work/rest pairs)
+- [ ] **Recovery windows** (green / yellow / red by days since last session)
+- [ ] **Light / rehab branches** + merge back to main track
+- [ ] Auto progression of targets after successful main-track steps
+- [ ] Auto rest timer after checking off a strength set
 - [ ] Offline-first session logging + sync
-- [ ] Minimal UI: timer, set entry, one analytics screen
-- [ ] **Workout builder UI**: stack of exercises from catalog + per-exercise tabata attach
-- [ ] **Exercise catalog DB/API**: CRUD, tags, muscle groups, user favorites
-- [ ] **Saved stack templates**: save, duplicate, assign to week/month calendar
-- [ ] Calendar view: map stacks → training days for 1–4+ weeks
+- [ ] “Suggested protocols” from history
+- [x] Multiple active UI affordances for switching cycles on home
+- [x] Workout builder UI: session stack from catalog + per-exercise tabata
+- [x] Exercise catalog DB/API
+- [x] Saved session templates (`workout_plans`)
+- [ ] Cycle builder: assemble templates + cursor + home “current step”
 
 ## Changelog (vision)
 
@@ -92,3 +97,5 @@ Future client UI is required to compose workouts without manual re-planning ever
 |------|------|
 | 2026-05-28 | Initial vision: plan ahead, execute in gym, saved interval protocols, math-engine separate |
 | 2026-05-28 | UI builder: exercise catalog, session stack, attach tabata per exercise, save stacks for multi-week planning |
+| 2026-07-20 | Added **training cycles** (multi, named) on top of session templates; preferred gym path = current step of a cycle (anti-calendar). Diary remains history. Recovery windows / branches stay in backlog |
+| 2026-07-20 | Renamed program→cycle; removed singleton `main` id |

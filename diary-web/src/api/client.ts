@@ -1,11 +1,14 @@
 import type {
+  CreateCycleBody,
   CreateExerciseBody,
   CreateIntervalProtocolBody,
   CreateWorkoutPlanBody,
   CreateWorkoutSessionBody,
+  Cycle,
   Exercise,
   ExerciseTarget,
   IntervalProtocol,
+  ReplaceCycleStepsBody,
   SaveSessionExerciseBody,
   SetTargetBody,
   StartWorkoutSessionBody,
@@ -29,13 +32,26 @@ class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...init?.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...init?.headers,
+      },
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError(0, 'Сервер не отвечает (таймаут). Проверь, что API запущен.');
+    }
+    throw new ApiError(0, 'Нет связи с API. Проверь Wi‑Fi и VITE_API_URL.');
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     let message = res.statusText;
@@ -86,6 +102,22 @@ export const api = {
   getWorkoutPlan: (id: string) => request<WorkoutPlan>(`/v1/workout-plans/${id}`),
   createWorkoutPlan: (body: CreateWorkoutPlanBody) =>
     request<WorkoutPlan>('/v1/workout-plans', { method: 'POST', body: JSON.stringify(body) }),
+
+  listCycles: () => request<Cycle[]>('/v1/cycles'),
+  getCycle: (id: string) => request<Cycle>(`/v1/cycles/${id}`),
+  createCycle: (body: CreateCycleBody) =>
+    request<Cycle>('/v1/cycles', { method: 'POST', body: JSON.stringify(body) }),
+  replaceCycleSteps: (id: string, body: ReplaceCycleStepsBody) =>
+    request<Cycle>(`/v1/cycles/${id}/steps`, { method: 'PUT', body: JSON.stringify(body) }),
+  advanceCycle: (id: string) =>
+    request<Cycle>(`/v1/cycles/${id}/advance`, { method: 'POST', body: '{}' }),
+  restartCycle: (id: string) =>
+    request<Cycle>(`/v1/cycles/${id}/restart`, { method: 'POST', body: '{}' }),
+  setCycleOnHome: (id: string, onHome: boolean) =>
+    request<Cycle>(`/v1/cycles/${id}/on-home`, {
+      method: 'PUT',
+      body: JSON.stringify({ onHome }),
+    }),
 
   createWorkoutSession: (body: CreateWorkoutSessionBody) =>
     request<WorkoutSession>('/v1/workout-sessions', {

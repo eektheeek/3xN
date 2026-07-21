@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'preact/hooks';
+import { route } from 'preact-router';
 import type { RoutableProps } from 'preact-router';
 import { api } from '../api/client';
 import type { ActiveWorkoutDraft, CreateSetBody, Exercise } from '../types';
-import { activeWorkoutKey } from '../types';
+import { ACTIVE_CYCLE_KEY } from '../types';
+import { clearDraft, readDraft, writeDraft } from '../utils/activeWorkout';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { SetRow } from '../components/SetRow';
 import { TabataTimer } from '../components/TabataTimer';
@@ -45,24 +47,6 @@ function setsFromSession(
   }));
 }
 
-function readDraft(planId: string): ActiveWorkoutDraft | null {
-  try {
-    const raw = localStorage.getItem(activeWorkoutKey(planId));
-    if (!raw) return null;
-    return JSON.parse(raw) as ActiveWorkoutDraft;
-  } catch {
-    return null;
-  }
-}
-
-function writeDraft(planId: string, draft: ActiveWorkoutDraft) {
-  localStorage.setItem(activeWorkoutKey(planId), JSON.stringify(draft));
-}
-
-function clearDraft(planId: string) {
-  localStorage.removeItem(activeWorkoutKey(planId));
-}
-
 function elapsedSec(startedAt: string): number {
   const t = Date.parse(startedAt);
   if (Number.isNaN(t)) return 0;
@@ -77,7 +61,6 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
   const [elapsed, setElapsed] = useState(0);
   const [savedExerciseIds, setSavedExerciseIds] = useState<Set<string>>(new Set());
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
-  const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -108,7 +91,6 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
           try {
             const session = await api.getWorkoutSession(activeSessionId);
             if (session.durationSec > 0) {
-              // Already finished — drop draft and start fresh.
               clearDraft(id);
               activeSessionId = null;
               activeStartedAt = null;
@@ -134,6 +116,11 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
           }
         }
 
+        if (!activeSessionId || !activeStartedAt) {
+          route(`/workouts/${id}`, true);
+          return;
+        }
+
         const items: ExerciseLog[] = [];
         for (const slot of plan.exercises ?? []) {
           const exercise = await api.getExercise(slot.exerciseId);
@@ -154,9 +141,7 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
         setStartedAt(activeStartedAt);
         setSavedExerciseIds(savedIds);
         setLogs(items);
-        if (activeStartedAt) {
-          setElapsed(elapsedSec(activeStartedAt));
-        }
+        setElapsed(elapsedSec(activeStartedAt));
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Ошибка загрузки');
       } finally {
@@ -200,25 +185,6 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
     });
   };
 
-  const handleStart = async () => {
-    setStarting(true);
-    setError('');
-    try {
-      const session = await api.startWorkoutSession({
-        performedAt: new Date().toISOString(),
-        isDeload: false,
-      });
-      const start = session.startedAt || new Date().toISOString();
-      setSessionId(session.id);
-      setStartedAt(start);
-      setElapsed(0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось начать');
-    } finally {
-      setStarting(false);
-    }
-  };
-
   const saveExercise = async (logIndex: number) => {
     if (!sessionId) return;
     const log = logs[logIndex];
@@ -254,6 +220,22 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
       }
       const durationSec = elapsedSec(startedAt);
       await api.finishWorkoutSession(sessionId, { durationSec });
+
+      try {
+        const cycleId = localStorage.getItem(ACTIVE_CYCLE_KEY);
+        if (cycleId) {
+          const cycle = await api.getCycle(cycleId);
+          if (!cycle.completed) {
+            const step = cycle.steps.find((s) => s.position === cycle.currentStep);
+            if (step?.workoutPlanId === id) {
+              await api.advanceCycle(cycleId);
+            }
+          }
+        }
+      } catch {
+        // Don't block finish UX if advance fails
+      }
+
       clearDraft(id);
       setFinalDurationSec(durationSec);
       setDone(true);
@@ -302,20 +284,6 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
       <ErrorBanner message={error} />
       {loading && <p class="muted">Загрузка…</p>}
 
-      {!loading && !started && (
-        <div class="page--center" style="min-height:40dvh">
-          <p class="muted">Нажми «Начать», когда готов — пойдёт таймер тренировки.</p>
-          <button
-            type="button"
-            class="btn btn-primary btn-block"
-            disabled={starting || logs.length === 0}
-            onClick={() => void handleStart()}
-          >
-            {starting ? 'Старт…' : 'Начать тренировку'}
-          </button>
-        </div>
-      )}
-
       {!loading && started && (
         <>
           <div class="workout-timer" aria-live="polite">
@@ -358,7 +326,6 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
                       class="btn btn-secondary btn-block"
                       style="margin-bottom:0.65rem"
                       onClick={() => {
-                        // Sync silent unlock — required for iOS Safari timer pips
                         unlockAudio();
                         setTabataIndex(logIndex);
                       }}

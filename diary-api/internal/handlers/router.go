@@ -33,5 +33,13 @@ func NewMux(api *API) *http.ServeMux {
 	mux.HandleFunc("GET /v1/workout-plans", api.ListWorkoutPlans)
 	mux.HandleFunc("GET /v1/workout-plans/{id}", api.GetWorkoutPlan)
 
+	mux.HandleFunc("GET /v1/cycles", api.ListCycles)
+	mux.HandleFunc("POST /v1/cycles", api.CreateCycle)
+	mux.HandleFunc("GET /v1/cycles/{id}", api.GetCycle)
+	mux.HandleFunc("PUT /v1/cycles/{id}/steps", api.ReplaceCycleSteps)
+	mux.HandleFunc("POST /v1/cycles/{id}/advance", api.AdvanceCycle)
+	mux.HandleFunc("POST /v1/cycles/{id}/restart", api.RestartCycle)
+	mux.HandleFunc("PUT /v1/cycles/{id}/on-home", api.SetCycleOnHome)
+
 	return mux
 }

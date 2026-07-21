@@ -59,6 +59,42 @@ curl -s -X POST http://localhost:8080/v1/workout-sessions \
 curl -s http://localhost:8080/v1/workout-sessions/SESSION_ID
 ```
 
+## Training cycles
+
+Multiple named cycles (e.g. home / outdoor), each with its own ordered steps and cursor.
+
+```bash
+# Create cycles
+curl -s -X POST http://localhost:8080/v1/cycles \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Дом"}'
+
+curl -s -X POST http://localhost:8080/v1/cycles \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Улица"}'
+
+# List / get
+curl -s http://localhost:8080/v1/cycles
+curl -s http://localhost:8080/v1/cycles/CYCLE_ID
+
+# Set ordered steps
+curl -s -X PUT http://localhost:8080/v1/cycles/CYCLE_ID/steps \
+  -H 'Content-Type: application/json' \
+  -d '{"workoutPlanIds":["PLAN_A","PLAN_B","PLAN_C"]}'
+
+# Advance cursor after finishing the current step
+curl -s -X POST http://localhost:8080/v1/cycles/CYCLE_ID/advance
+curl -s -X POST http://localhost:8080/v1/cycles/CYCLE_ID/restart
+curl -s -X PUT http://localhost:8080/v1/cycles/CYCLE_ID/on-home \
+  -H 'Content-Type: application/json' \
+  -d '{"onHome":true}'
+
+# Start session linked to a plan
+curl -s -X POST http://localhost:8080/v1/workout-sessions/start \
+  -H 'Content-Type: application/json' \
+  -d '{"performedAt":"2026-07-20T10:00:00Z","workoutPlanId":"PLAN_A"}'
+```
+
 ## Tests
 
 ```bash

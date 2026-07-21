@@ -132,26 +132,43 @@ func (r *Repository) CreateWorkoutSession(in CreateWorkoutSessionInput) (models.
 }
 
 // StartWorkoutSession creates an empty session for incremental logging.
-func (r *Repository) StartWorkoutSession(performedAt string, isDeload bool) (models.WorkoutSession, error) {
+func (r *Repository) StartWorkoutSession(performedAt string, isDeload bool, workoutPlanID string) (models.WorkoutSession, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	session := models.WorkoutSession{
-		ID:          uuid.NewString(),
-		PerformedAt: performedAt,
-		StartedAt:   now,
-		DurationSec: 0,
-		IsDeload:    isDeload,
-		CreatedAt:   now,
-		Exercises:   []models.WorkoutSessionExercise{},
+		ID:            uuid.NewString(),
+		PerformedAt:   performedAt,
+		StartedAt:     now,
+		DurationSec:   0,
+		IsDeload:      isDeload,
+		WorkoutPlanID: workoutPlanID,
+		CreatedAt:     now,
+		Exercises:     []models.WorkoutSessionExercise{},
 	}
 	if session.PerformedAt == "" {
 		session.PerformedAt = now
 	}
 
+	if workoutPlanID != "" {
+		var exists int
+		err := r.db.QueryRow(`SELECT 1 FROM workout_plans WHERE id = ?`, workoutPlanID).Scan(&exists)
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.WorkoutSession{}, fmt.Errorf("workout plan %s: %w", workoutPlanID, ErrNotFound)
+		}
+		if err != nil {
+			return models.WorkoutSession{}, fmt.Errorf("check workout plan: %w", err)
+		}
+	}
+
+	var planArg any
+	if workoutPlanID != "" {
+		planArg = workoutPlanID
+	}
+
 	_, err := r.db.Exec(
-		`INSERT INTO workout_sessions (id, performed_at, is_deload, created_at, started_at, duration_sec)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO workout_sessions (id, performed_at, is_deload, created_at, started_at, duration_sec, workout_plan_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		session.ID, session.PerformedAt, boolToInt(session.IsDeload), session.CreatedAt,
-		session.StartedAt, session.DurationSec,
+		session.StartedAt, session.DurationSec, planArg,
 	)
 	if err != nil {
 		return models.WorkoutSession{}, fmt.Errorf("insert workout session: %w", err)
@@ -339,13 +356,14 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 	var session models.WorkoutSession
 	var deload int
 	var startedAt sql.NullString
+	var planID sql.NullString
 	err := r.db.QueryRow(
-		`SELECT id, performed_at, is_deload, created_at, started_at, duration_sec
+		`SELECT id, performed_at, is_deload, created_at, started_at, duration_sec, workout_plan_id
 		 FROM workout_sessions WHERE id = ?`,
 		id,
 	).Scan(
 		&session.ID, &session.PerformedAt, &deload, &session.CreatedAt,
-		&startedAt, &session.DurationSec,
+		&startedAt, &session.DurationSec, &planID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.WorkoutSession{}, ErrNotFound
@@ -356,6 +374,9 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 	session.IsDeload = deload == 1
 	if startedAt.Valid {
 		session.StartedAt = startedAt.String
+	}
+	if planID.Valid {
+		session.WorkoutPlanID = planID.String
 	}
 
 	exRows, err := r.db.Query(

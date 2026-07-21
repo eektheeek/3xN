@@ -113,8 +113,9 @@ func (a *API) GetWorkoutSession(w http.ResponseWriter, r *http.Request) {
 }
 
 type startWorkoutSessionRequest struct {
-	PerformedAt string `json:"performedAt"`
-	IsDeload    bool   `json:"isDeload"`
+	PerformedAt   string `json:"performedAt"`
+	IsDeload      bool   `json:"isDeload"`
+	WorkoutPlanID string `json:"workoutPlanId"`
 }
 
 // StartWorkoutSession handles POST /v1/workout-sessions/start.
@@ -125,7 +126,11 @@ func (a *API) StartWorkoutSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := a.repo.StartWorkoutSession(req.PerformedAt, req.IsDeload)
+	session, err := a.repo.StartWorkoutSession(req.PerformedAt, req.IsDeload, req.WorkoutPlanID)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "workout plan not found")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to start workout session")
 		return

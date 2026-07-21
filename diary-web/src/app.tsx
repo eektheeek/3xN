@@ -10,6 +10,8 @@ import { DiarySessionDetail } from './pages/DiarySessionDetail';
 import { ProtocolList } from './pages/ProtocolList';
 import { ProtocolNew } from './pages/ProtocolNew';
 import { ProtocolDetail } from './pages/ProtocolDetail';
+import { CycleList } from './pages/CycleList';
+import { CycleDetail } from './pages/CycleDetail';
 import './app.css';
 
 export function App() {
@@ -25,6 +27,8 @@ export function App() {
         <ProtocolNew path="/protocols/new" />
         <ProtocolDetail path="/protocols/:id" />
         <ProtocolList path="/protocols" />
+        <CycleList path="/cycles" />
+        <CycleDetail path="/cycles/:id" />
         <DiarySessionDetail path="/diary/:id" />
         <Diary path="/diary" />
       </Router>

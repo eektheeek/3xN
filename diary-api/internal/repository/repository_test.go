@@ -71,7 +71,7 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 		t.Fatalf("expected cleared assist on listed exercise, got %+v", list)
 	}
 
-	session, err := repo.StartWorkoutSession("2026-07-16T18:00:00Z", false)
+	session, err := repo.StartWorkoutSession("2026-07-16T18:00:00Z", false, "")
 	if err != nil {
 		t.Fatalf("start workout session: %v", err)
 	}
@@ -145,5 +145,155 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 	}
 	if len(fullSession.Exercises) != 1 || len(fullSession.Exercises[0].Sets) != 1 {
 		t.Fatalf("unexpected session shape: %+v", fullSession)
+	}
+}
+
+func TestCycleStepsAndAdvance(t *testing.T) {
+	sqlDB, err := db.Open(filepath.Join(t.TempDir(), "cycle.db"), filepath.Join("..", "..", "migrations"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	repo := repository.New(sqlDB)
+
+	ex, err := repo.CreateExercise("Squat", "legs", false, "")
+	if err != nil {
+		t.Fatalf("create exercise: %v", err)
+	}
+
+	planA, err := repo.CreateWorkoutPlan(repository.CreateWorkoutPlanInput{
+		Name: "A", ExerciseIDs: []string{ex.ID},
+	})
+	if err != nil {
+		t.Fatalf("create plan A: %v", err)
+	}
+	planB, err := repo.CreateWorkoutPlan(repository.CreateWorkoutPlanInput{
+		Name: "B", ExerciseIDs: []string{ex.ID},
+	})
+	if err != nil {
+		t.Fatalf("create plan B: %v", err)
+	}
+	planC, err := repo.CreateWorkoutPlan(repository.CreateWorkoutPlanInput{
+		Name: "C", ExerciseIDs: []string{ex.ID},
+	})
+	if err != nil {
+		t.Fatalf("create plan C: %v", err)
+	}
+
+	home, err := repo.CreateCycle("Дом")
+	if err != nil {
+		t.Fatalf("create cycle: %v", err)
+	}
+	outdoor, err := repo.CreateCycle("Улица")
+	if err != nil {
+		t.Fatalf("create outdoor cycle: %v", err)
+	}
+	if home.ID == outdoor.ID {
+		t.Fatalf("expected distinct cycle ids")
+	}
+
+	list, err := repo.ListCycles()
+	if err != nil || len(list) != 2 {
+		t.Fatalf("list cycles: %v %+v", err, list)
+	}
+
+	empty, err := repo.GetCycle(home.ID)
+	if err != nil {
+		t.Fatalf("get cycle: %v", err)
+	}
+	if len(empty.Steps) != 0 || empty.CurrentStep != 1 || empty.Name != "Дом" {
+		t.Fatalf("unexpected empty cycle: %+v", empty)
+	}
+
+	if empty.OnHome {
+		t.Fatalf("new cycle should not be on home: %+v", empty)
+	}
+
+	cycle, err := repo.ReplaceCycleSteps(home.ID, []string{planA.ID, planB.ID, planC.ID})
+	if err != nil {
+		t.Fatalf("replace steps: %v", err)
+	}
+	if len(cycle.Steps) != 3 || cycle.CurrentStep != 1 {
+		t.Fatalf("unexpected cycle after replace: %+v", cycle)
+	}
+	if cycle.Steps[0].WorkoutPlanName != "A" || cycle.Steps[2].Position != 3 {
+		t.Fatalf("unexpected steps: %+v", cycle.Steps)
+	}
+
+	cycle, err = repo.SetCycleOnHome(home.ID, true)
+	if err != nil || !cycle.OnHome {
+		t.Fatalf("set on home: %+v %v", cycle, err)
+	}
+	cycle, err = repo.SetCycleOnHome(home.ID, false)
+	if err != nil || cycle.OnHome {
+		t.Fatalf("unset on home: %+v %v", cycle, err)
+	}
+
+	cycle, err = repo.AdvanceCycle(home.ID)
+	if err != nil {
+		t.Fatalf("advance: %v", err)
+	}
+	if cycle.CurrentStep != 2 {
+		t.Fatalf("expected step 2, got %d", cycle.CurrentStep)
+	}
+	if !cycle.OnHome {
+		t.Fatalf("advance should pin cycle to home: %+v", cycle)
+	}
+	cycle, err = repo.AdvanceCycle(home.ID)
+	if err != nil {
+		t.Fatalf("advance 2: %v", err)
+	}
+	if cycle.CurrentStep != 3 {
+		t.Fatalf("expected step 3, got %d", cycle.CurrentStep)
+	}
+	cycle, err = repo.AdvanceCycle(home.ID)
+	if err != nil {
+		t.Fatalf("advance at end: %v", err)
+	}
+	if !cycle.Completed || cycle.CurrentStep != 4 {
+		t.Fatalf("expected completed after last step, got %+v", cycle)
+	}
+
+	cycle, err = repo.RestartCycle(home.ID)
+	if err != nil {
+		t.Fatalf("restart: %v", err)
+	}
+	if cycle.Completed || cycle.CurrentStep != 1 {
+		t.Fatalf("expected restart at step 1, got %+v", cycle)
+	}
+
+	// Re-advance to end for shrink test
+	_, _ = repo.AdvanceCycle(home.ID)
+	_, _ = repo.AdvanceCycle(home.ID)
+	cycle, err = repo.AdvanceCycle(home.ID)
+	if err != nil || !cycle.Completed {
+		t.Fatalf("re-complete: %+v %v", cycle, err)
+	}
+
+	// Outdoor cycle stays independent
+	out, err := repo.GetCycle(outdoor.ID)
+	if err != nil || out.CurrentStep != 1 || len(out.Steps) != 0 || out.Completed {
+		t.Fatalf("outdoor should be untouched: %+v %v", out, err)
+	}
+
+	cycle, err = repo.ReplaceCycleSteps(home.ID, []string{planB.ID})
+	if err != nil {
+		t.Fatalf("shrink steps: %v", err)
+	}
+	// Was completed (step 4); after shrink to 1 step → stay completed at step 2
+	if !cycle.Completed || cycle.CurrentStep != 2 || len(cycle.Steps) != 1 {
+		t.Fatalf("unexpected after shrink: %+v", cycle)
+	}
+
+	session, err := repo.StartWorkoutSession("2026-07-20T10:00:00Z", false, planB.ID)
+	if err != nil {
+		t.Fatalf("start with plan: %v", err)
+	}
+	loaded, err := repo.GetWorkoutSession(session.ID)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if loaded.WorkoutPlanID != planB.ID {
+		t.Fatalf("expected workoutPlanId %s, got %q", planB.ID, loaded.WorkoutPlanID)
 	}
 }

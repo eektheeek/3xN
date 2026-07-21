@@ -77,8 +77,35 @@ export interface WorkoutSession {
   startedAt?: string;
   durationSec: number;
   isDeload: boolean;
+  workoutPlanId?: string;
   createdAt: string;
   exercises?: WorkoutSessionExercise[];
+}
+
+export interface CycleStep {
+  id: string;
+  cycleId: string;
+  position: number;
+  workoutPlanId: string;
+  workoutPlanName?: string;
+}
+
+export interface Cycle {
+  id: string;
+  name: string;
+  currentStep: number;
+  completed: boolean;
+  onHome: boolean;
+  createdAt: string;
+  steps: CycleStep[];
+}
+
+export interface CreateCycleBody {
+  name: string;
+}
+
+export interface ReplaceCycleStepsBody {
+  workoutPlanIds: string[];
 }
 
 export interface CreateExerciseBody {
@@ -148,6 +175,7 @@ export interface SaveSessionExerciseBody {
 export interface StartWorkoutSessionBody {
   performedAt?: string;
   isDeload?: boolean;
+  workoutPlanId?: string;
 }
 
 export interface ActiveWorkoutDraft {
@@ -164,3 +192,6 @@ export interface ActiveWorkoutDraft {
 export function activeWorkoutKey(planId: string): string {
   return `activeWorkout:${planId}`;
 }
+
+/** Selected training cycle on the home screen. */
+export const ACTIVE_CYCLE_KEY = 'activeCycleId';

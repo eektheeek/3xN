@@ -57,6 +57,21 @@ export function DiarySessionDetail({ id }: DiarySessionDetailProps) {
       {session && (
         <>
           <p class="diary-detail__date">{formatSessionDateTime(session.performedAt)}</p>
+          {session.cycleName && (
+            <p class="diary-detail__cycle">
+              {session.cycleId ? (
+                <a href={`/cycles/${session.cycleId}`}>
+                  Цикл: {session.cycleName}
+                  {session.cycleStep ? ` · шаг ${session.cycleStep}` : ''}
+                </a>
+              ) : (
+                <>
+                  Цикл: {session.cycleName}
+                  {session.cycleStep ? ` · шаг ${session.cycleStep}` : ''}
+                </>
+              )}
+            </p>
+          )}
           {session.durationSec > 0 && (
             <p class="diary-detail__duration">Длительность: {formatDurationLabel(session.durationSec)}</p>
           )}

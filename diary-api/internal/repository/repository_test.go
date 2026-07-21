@@ -109,7 +109,7 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 		t.Fatalf("unexpected summary: %+v", summaries[0])
 	}
 
-	finished, err := repo.FinishWorkoutSession(session.ID, 3725)
+	finished, err := repo.FinishWorkoutSession(session.ID, 3725, "")
 	if err != nil {
 		t.Fatalf("finish workout session: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestCycleStepsAndAdvance(t *testing.T) {
 		t.Fatalf("unset on home: %+v %v", cycle, err)
 	}
 
-	cycle, err = repo.AdvanceCycle(home.ID)
+	cycle, err = repo.AdvanceCycle(home.ID, "")
 	if err != nil {
 		t.Fatalf("advance: %v", err)
 	}
@@ -239,35 +239,62 @@ func TestCycleStepsAndAdvance(t *testing.T) {
 	if !cycle.OnHome {
 		t.Fatalf("advance should pin cycle to home: %+v", cycle)
 	}
-	cycle, err = repo.AdvanceCycle(home.ID)
+
+	session, err := repo.StartWorkoutSession("2026-07-20T10:00:00Z", false, planB.ID)
 	if err != nil {
-		t.Fatalf("advance 2: %v", err)
+		t.Fatalf("start session for link: %v", err)
+	}
+	// Finish current cycle step (plan B is step 2) — advances in the same call
+	finished, err := repo.FinishWorkoutSession(session.ID, 600, home.ID)
+	if err != nil {
+		t.Fatalf("finish+advance: %v", err)
+	}
+	if finished.CycleID != home.ID || finished.CycleStep != 2 {
+		t.Fatalf("expected cycle link on finished session, got %+v", finished)
+	}
+	cycle, err = repo.GetCycle(home.ID)
+	if err != nil {
+		t.Fatalf("get cycle after finish: %v", err)
 	}
 	if cycle.CurrentStep != 3 {
-		t.Fatalf("expected step 3, got %d", cycle.CurrentStep)
+		t.Fatalf("expected step 3 after finish+advance, got %d", cycle.CurrentStep)
 	}
-	cycle, err = repo.AdvanceCycle(home.ID)
+	linked := cycle.Steps[1]
+	if linked.CompletedSessionID != session.ID || linked.CompletedPerformedAt == "" {
+		t.Fatalf("expected step 2 linked to session, got %+v", linked)
+	}
+	cycle, err = repo.AdvanceCycle(home.ID, "")
 	if err != nil {
 		t.Fatalf("advance at end: %v", err)
 	}
 	if !cycle.Completed || cycle.CurrentStep != 4 {
 		t.Fatalf("expected completed after last step, got %+v", cycle)
 	}
+	if cycle.OnHome {
+		t.Fatalf("completed cycle should leave home: %+v", cycle)
+	}
 
-	cycle, err = repo.RestartCycle(home.ID)
+	repeated, err := repo.RepeatCycle(home.ID)
 	if err != nil {
-		t.Fatalf("restart: %v", err)
+		t.Fatalf("repeat: %v", err)
 	}
-	if cycle.Completed || cycle.CurrentStep != 1 {
-		t.Fatalf("expected restart at step 1, got %+v", cycle)
+	if repeated.ID == home.ID || repeated.Completed || repeated.CurrentStep != 1 || !repeated.OnHome {
+		t.Fatalf("unexpected repeated cycle: %+v", repeated)
+	}
+	if len(repeated.Steps) != 3 || repeated.Name != "Дом" {
+		t.Fatalf("repeated steps/name: %+v", repeated)
+	}
+	still, err := repo.GetCycle(home.ID)
+	if err != nil || !still.Completed {
+		t.Fatalf("original should stay completed: %+v %v", still, err)
 	}
 
-	// Re-advance to end for shrink test
-	_, _ = repo.AdvanceCycle(home.ID)
-	_, _ = repo.AdvanceCycle(home.ID)
-	cycle, err = repo.AdvanceCycle(home.ID)
+	// Shrink a completed clone for cursor normalize check
+	_, _ = repo.AdvanceCycle(repeated.ID, "")
+	_, _ = repo.AdvanceCycle(repeated.ID, "")
+	cycle, err = repo.AdvanceCycle(repeated.ID, "")
 	if err != nil || !cycle.Completed {
-		t.Fatalf("re-complete: %+v %v", cycle, err)
+		t.Fatalf("re-complete clone: %+v %v", cycle, err)
 	}
 
 	// Outdoor cycle stays independent
@@ -276,7 +303,7 @@ func TestCycleStepsAndAdvance(t *testing.T) {
 		t.Fatalf("outdoor should be untouched: %+v %v", out, err)
 	}
 
-	cycle, err = repo.ReplaceCycleSteps(home.ID, []string{planB.ID})
+	cycle, err = repo.ReplaceCycleSteps(repeated.ID, []string{planB.ID})
 	if err != nil {
 		t.Fatalf("shrink steps: %v", err)
 	}
@@ -285,11 +312,17 @@ func TestCycleStepsAndAdvance(t *testing.T) {
 		t.Fatalf("unexpected after shrink: %+v", cycle)
 	}
 
-	session, err := repo.StartWorkoutSession("2026-07-20T10:00:00Z", false, planB.ID)
+	// Original completed history untouched
+	still, err = repo.GetCycle(home.ID)
+	if err != nil || !still.Completed || len(still.Steps) != 3 {
+		t.Fatalf("original history changed: %+v %v", still, err)
+	}
+
+	session2, err := repo.StartWorkoutSession("2026-07-20T11:00:00Z", false, planB.ID)
 	if err != nil {
 		t.Fatalf("start with plan: %v", err)
 	}
-	loaded, err := repo.GetWorkoutSession(session.ID)
+	loaded, err := repo.GetWorkoutSession(session2.ID)
 	if err != nil {
 		t.Fatalf("get session: %v", err)
 	}

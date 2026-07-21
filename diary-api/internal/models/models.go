@@ -40,6 +40,9 @@ type WorkoutSession struct {
 	DurationSec   int                      `json:"durationSec"`
 	IsDeload      bool                     `json:"isDeload"`
 	WorkoutPlanID string                   `json:"workoutPlanId,omitempty"`
+	CycleID       string                   `json:"cycleId,omitempty"`
+	CycleName     string                   `json:"cycleName,omitempty"`
+	CycleStep     int                      `json:"cycleStep,omitempty"`
 	CreatedAt     string                   `json:"createdAt"`
 	Exercises     []WorkoutSessionExercise `json:"exercises,omitempty"`
 }
@@ -57,11 +60,13 @@ type Cycle struct {
 
 // CycleStep is one slot in a training cycle.
 type CycleStep struct {
-	ID              string `json:"id"`
-	CycleID         string `json:"cycleId"`
-	Position        int    `json:"position"`
-	WorkoutPlanID   string `json:"workoutPlanId"`
-	WorkoutPlanName string `json:"workoutPlanName,omitempty"`
+	ID                  string `json:"id"`
+	CycleID             string `json:"cycleId"`
+	Position            int    `json:"position"`
+	WorkoutPlanID       string `json:"workoutPlanId"`
+	WorkoutPlanName     string `json:"workoutPlanName,omitempty"`
+	CompletedSessionID  string `json:"completedSessionId,omitempty"`
+	CompletedPerformedAt string `json:"completedPerformedAt,omitempty"`
 }
 
 // WorkoutSessionExercise is one exercise block inside a workout session.
@@ -84,6 +89,9 @@ type WorkoutSessionSummary struct {
 	CreatedAt     string   `json:"createdAt"`
 	ExerciseCount int      `json:"exerciseCount"`
 	ExerciseNames []string `json:"exerciseNames"`
+	CycleID       string   `json:"cycleId,omitempty"`
+	CycleName     string   `json:"cycleName,omitempty"`
+	CycleStep     int      `json:"cycleStep,omitempty"`
 }
 
 // Set is one performed set.

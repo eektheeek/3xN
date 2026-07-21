@@ -39,6 +39,7 @@ func NewMux(api *API) *http.ServeMux {
 	mux.HandleFunc("PUT /v1/cycles/{id}/steps", api.ReplaceCycleSteps)
 	mux.HandleFunc("POST /v1/cycles/{id}/advance", api.AdvanceCycle)
 	mux.HandleFunc("POST /v1/cycles/{id}/restart", api.RestartCycle)
+	mux.HandleFunc("POST /v1/cycles/{id}/repeat", api.RepeatCycle)
 	mux.HandleFunc("PUT /v1/cycles/{id}/on-home", api.SetCycleOnHome)
 
 	return mux

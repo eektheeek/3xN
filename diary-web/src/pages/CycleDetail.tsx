@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'preact/hooks';
+import { route } from 'preact-router';
 import type { RoutableProps } from 'preact-router';
 import { api } from '../api/client';
 import type { Cycle, WorkoutPlan } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { CycleTimeline } from '../components/CycleTimeline';
 
 interface CycleDetailProps extends RoutableProps {
   id?: string;
@@ -20,6 +22,7 @@ export function CycleDetail({ id }: CycleDetailProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [repeating, setRepeating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -73,7 +76,7 @@ export function CycleDetail({ id }: CycleDetailProps) {
   };
 
   const handleSave = async () => {
-    if (!id || !dirty || saving) return;
+    if (!id || !dirty || saving || cycle?.completed) return;
     setSaving(true);
     setError('');
     try {
@@ -95,6 +98,21 @@ export function CycleDetail({ id }: CycleDetailProps) {
       setSaving(false);
     }
   };
+
+  const handleRepeat = async () => {
+    if (!id) return;
+    setRepeating(true);
+    setError('');
+    try {
+      const created = await api.repeatCycle(id);
+      route(`/cycles/${created.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось повторить цикл');
+    } finally {
+      setRepeating(false);
+    }
+  };
+
   return (
     <div class="page">
       <header class="page-header">
@@ -107,7 +125,27 @@ export function CycleDetail({ id }: CycleDetailProps) {
       <ErrorBanner message={error} />
       {loading && <p class="muted">Загрузка…</p>}
 
-      {!loading && cycle && (
+      {!loading && cycle?.completed && (
+        <>
+          <p class="muted" style="font-size:0.85rem;margin-bottom:1rem">
+            Завершённый прогон — только просмотр. «Повторить» создаст новый активный цикл.
+          </p>
+          <div class="card card--cycle-done" style="padding:1rem">
+            <CycleTimeline cycle={cycle} />
+          </div>
+          <button
+            type="button"
+            class="btn btn-primary btn-block"
+            style="margin-top:1rem"
+            disabled={repeating || cycle.steps.length === 0}
+            onClick={() => void handleRepeat()}
+          >
+            {repeating ? '…' : 'Повторить'}
+          </button>
+        </>
+      )}
+
+      {!loading && cycle && !cycle.completed && (
         <>
           <p class="muted" style="font-size:0.85rem;margin-bottom:1rem">
             {draft.length === 0
@@ -147,9 +185,7 @@ export function CycleDetail({ id }: CycleDetailProps) {
             ))}
           </ul>
 
-          {draft.length === 0 && (
-            <p class="muted">Пока шагов нет.</p>
-          )}
+          {draft.length === 0 && <p class="muted">Пока шагов нет.</p>}
 
           {!showPicker ? (
             <button

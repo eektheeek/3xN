@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/eektheeek/dead-lift-project/diary-api/internal/repository"
 )
@@ -139,7 +140,8 @@ func (a *API) StartWorkoutSession(w http.ResponseWriter, r *http.Request) {
 }
 
 type finishWorkoutSessionRequest struct {
-	DurationSec int `json:"durationSec"`
+	DurationSec int    `json:"durationSec"`
+	CycleID     string `json:"cycleId"`
 }
 
 // FinishWorkoutSession handles POST /v1/workout-sessions/{id}/finish.
@@ -160,13 +162,13 @@ func (a *API) FinishWorkoutSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := a.repo.FinishWorkoutSession(id, req.DurationSec)
+	session, err := a.repo.FinishWorkoutSession(id, req.DurationSec, strings.TrimSpace(req.CycleID))
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "workout session not found")
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to finish workout session")
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, session)

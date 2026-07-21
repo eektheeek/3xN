@@ -82,9 +82,17 @@ curl -s -X PUT http://localhost:8080/v1/cycles/CYCLE_ID/steps \
   -H 'Content-Type: application/json' \
   -d '{"workoutPlanIds":["PLAN_A","PLAN_B","PLAN_C"]}'
 
-# Advance cursor after finishing the current step
-curl -s -X POST http://localhost:8080/v1/cycles/CYCLE_ID/advance
+# Preferred: finish session and advance cycle in one request
+curl -s -X POST http://localhost:8080/v1/workout-sessions/SESSION_ID/finish \
+  -H 'Content-Type: application/json' \
+  -d '{"durationSec":3600,"cycleId":"CYCLE_ID"}'
+
+# Manual advance (recovery / debug)
+curl -s -X POST http://localhost:8080/v1/cycles/CYCLE_ID/advance \
+  -H 'Content-Type: application/json' \
+  -d '{"sessionId":"SESSION_ID"}'
 curl -s -X POST http://localhost:8080/v1/cycles/CYCLE_ID/restart
+curl -s -X POST http://localhost:8080/v1/cycles/CYCLE_ID/repeat
 curl -s -X PUT http://localhost:8080/v1/cycles/CYCLE_ID/on-home \
   -H 'Content-Type: application/json' \
   -d '{"onHome":true}'

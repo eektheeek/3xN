@@ -100,13 +100,22 @@ func (a *API) AdvanceCycle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "id is required")
 		return
 	}
-	cycle, err := a.repo.AdvanceCycle(id)
+	var req struct {
+		SessionID string `json:"sessionId"`
+	}
+	if r.ContentLength > 0 {
+		if err := decodeJSON(r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json body")
+			return
+		}
+	}
+	cycle, err := a.repo.AdvanceCycle(id, strings.TrimSpace(req.SessionID))
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "cycle not found")
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to advance cycle")
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, cycle)
@@ -153,8 +162,27 @@ func (a *API) SetCycleOnHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update cycle")
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, cycle)
+}
+
+// RepeatCycle handles POST /v1/cycles/{id}/repeat.
+func (a *API) RepeatCycle(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+	cycle, err := a.repo.RepeatCycle(id)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "cycle not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, cycle)
 }

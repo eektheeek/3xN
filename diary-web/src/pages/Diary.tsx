@@ -169,7 +169,7 @@ export function Diary(_props: RoutableProps) {
                 <ul class="list">
                   {selectedSessions.map((session) => (
                     <li key={session.id}>
-                      <SessionSummaryCard session={session} showDate={selectedSessions.length > 1} />
+                      <SessionSummaryCard session={session} />
                     </li>
                   ))}
                 </ul>

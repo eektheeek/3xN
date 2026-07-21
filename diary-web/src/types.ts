@@ -69,6 +69,9 @@ export interface WorkoutSessionSummary {
   createdAt: string;
   exerciseCount: number;
   exerciseNames: string[];
+  cycleId?: string;
+  cycleName?: string;
+  cycleStep?: number;
 }
 
 export interface WorkoutSession {
@@ -78,6 +81,9 @@ export interface WorkoutSession {
   durationSec: number;
   isDeload: boolean;
   workoutPlanId?: string;
+  cycleId?: string;
+  cycleName?: string;
+  cycleStep?: number;
   createdAt: string;
   exercises?: WorkoutSessionExercise[];
 }
@@ -88,6 +94,8 @@ export interface CycleStep {
   position: number;
   workoutPlanId: string;
   workoutPlanName?: string;
+  completedSessionId?: string;
+  completedPerformedAt?: string;
 }
 
 export interface Cycle {

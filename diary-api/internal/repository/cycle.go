@@ -123,9 +123,11 @@ func (r *Repository) CreateCycle(name string) (models.Cycle, error) {
 
 func (r *Repository) listCycleSteps(cycleID string) ([]models.CycleStep, error) {
 	rows, err := r.db.Query(
-		`SELECT cs.id, cs.cycle_id, cs.position, cs.workout_plan_id, wp.name
+		`SELECT cs.id, cs.cycle_id, cs.position, cs.workout_plan_id, wp.name,
+		        cs.completed_session_id, ws.performed_at
 		 FROM cycle_steps cs
 		 INNER JOIN workout_plans wp ON wp.id = cs.workout_plan_id
+		 LEFT JOIN workout_sessions ws ON ws.id = cs.completed_session_id
 		 WHERE cs.cycle_id = ?
 		 ORDER BY cs.position ASC`,
 		cycleID,
@@ -138,8 +140,18 @@ func (r *Repository) listCycleSteps(cycleID string) ([]models.CycleStep, error) 
 	var out []models.CycleStep
 	for rows.Next() {
 		var s models.CycleStep
-		if err := rows.Scan(&s.ID, &s.CycleID, &s.Position, &s.WorkoutPlanID, &s.WorkoutPlanName); err != nil {
+		var sessionID, performedAt sql.NullString
+		if err := rows.Scan(
+			&s.ID, &s.CycleID, &s.Position, &s.WorkoutPlanID, &s.WorkoutPlanName,
+			&sessionID, &performedAt,
+		); err != nil {
 			return nil, fmt.Errorf("scan cycle step: %w", err)
+		}
+		if sessionID.Valid {
+			s.CompletedSessionID = sessionID.String
+		}
+		if performedAt.Valid {
+			s.CompletedPerformedAt = performedAt.String
 		}
 		out = append(out, s)
 	}
@@ -226,8 +238,8 @@ func (r *Repository) ReplaceCycleSteps(cycleID string, workoutPlanIDs []string) 
 }
 
 // AdvanceCycle moves to the next step; finishing the last step marks the cycle completed.
-// Any progress pins the cycle to the home screen.
-func (r *Repository) AdvanceCycle(cycleID string) (models.Cycle, error) {
+// Optional sessionID links the step being finished to a diary workout session.
+func (r *Repository) AdvanceCycle(cycleID string, sessionID string) (models.Cycle, error) {
 	c, err := r.GetCycle(cycleID)
 	if err != nil {
 		return models.Cycle{}, err
@@ -239,19 +251,60 @@ func (r *Repository) AdvanceCycle(cycleID string) (models.Cycle, error) {
 	if c.Completed {
 		return c, nil
 	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return models.Cycle{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID != "" {
+		var exists int
+		err = tx.QueryRow(`SELECT 1 FROM workout_sessions WHERE id = ?`, sessionID).Scan(&exists)
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.Cycle{}, fmt.Errorf("workout session not found")
+		}
+		if err != nil {
+			return models.Cycle{}, fmt.Errorf("check session: %w", err)
+		}
+		_, err = tx.Exec(
+			`UPDATE cycle_steps SET completed_session_id = ?
+			 WHERE cycle_id = ? AND position = ?`,
+			sessionID, cycleID, c.CurrentStep,
+		)
+		if err != nil {
+			return models.Cycle{}, fmt.Errorf("link step session: %w", err)
+		}
+	}
+
 	next := c.CurrentStep + 1
-	_, err = r.db.Exec(
-		`UPDATE cycles SET current_step = ?, on_home = 1 WHERE id = ?`,
-		next, cycleID,
+	onHome := 1
+	if next > n {
+		onHome = 0 // completed runs leave the home screen; stay in history
+	}
+	_, err = tx.Exec(
+		`UPDATE cycles SET current_step = ?, on_home = ? WHERE id = ?`,
+		next, onHome, cycleID,
 	)
 	if err != nil {
 		return models.Cycle{}, fmt.Errorf("advance cycle: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return models.Cycle{}, fmt.Errorf("commit: %w", err)
 	}
 	return r.GetCycle(cycleID)
 }
 
 // SetCycleOnHome toggles whether the cycle appears on the home screen.
 func (r *Repository) SetCycleOnHome(cycleID string, onHome bool) (models.Cycle, error) {
+	c, err := r.GetCycle(cycleID)
+	if err != nil {
+		return models.Cycle{}, err
+	}
+	if c.Completed && onHome {
+		return models.Cycle{}, fmt.Errorf("completed cycle cannot be pinned to home; use Repeat")
+	}
 	res, err := r.db.Exec(
 		`UPDATE cycles SET on_home = ? WHERE id = ?`,
 		boolToInt(onHome), cycleID,
@@ -269,7 +322,49 @@ func (r *Repository) SetCycleOnHome(cycleID string, onHome bool) (models.Cycle, 
 	return r.GetCycle(cycleID)
 }
 
+// RepeatCycle clones a cycle (usually completed) into a fresh active run with the same steps.
+func (r *Repository) RepeatCycle(cycleID string) (models.Cycle, error) {
+	src, err := r.GetCycle(cycleID)
+	if err != nil {
+		return models.Cycle{}, err
+	}
+	if len(src.Steps) == 0 {
+		return models.Cycle{}, fmt.Errorf("cycle has no steps to repeat")
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return models.Cycle{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	newID := uuid.NewString()
+	_, err = tx.Exec(
+		`INSERT INTO cycles (id, name, current_step, on_home, created_at) VALUES (?, ?, 1, 1, ?)`,
+		newID, src.Name, now,
+	)
+	if err != nil {
+		return models.Cycle{}, fmt.Errorf("insert repeated cycle: %w", err)
+	}
+	for _, step := range src.Steps {
+		_, err = tx.Exec(
+			`INSERT INTO cycle_steps (id, cycle_id, position, workout_plan_id)
+			 VALUES (?, ?, ?, ?)`,
+			uuid.NewString(), newID, step.Position, step.WorkoutPlanID,
+		)
+		if err != nil {
+			return models.Cycle{}, fmt.Errorf("clone cycle step: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return models.Cycle{}, fmt.Errorf("commit: %w", err)
+	}
+	return r.GetCycle(newID)
+}
+
 // RestartCycle resets the cursor to step 1 (keeps on_home as-is).
+// Prefer RepeatCycle for completed runs so history is preserved.
 func (r *Repository) RestartCycle(cycleID string) (models.Cycle, error) {
 	var exists int
 	err := r.db.QueryRow(`SELECT 1 FROM cycles WHERE id = ?`, cycleID).Scan(&exists)

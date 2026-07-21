@@ -219,22 +219,11 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
         }
       }
       const durationSec = elapsedSec(startedAt);
-      await api.finishWorkoutSession(sessionId, { durationSec });
-
-      try {
-        const cycleId = localStorage.getItem(ACTIVE_CYCLE_KEY);
-        if (cycleId) {
-          const cycle = await api.getCycle(cycleId);
-          if (!cycle.completed) {
-            const step = cycle.steps.find((s) => s.position === cycle.currentStep);
-            if (step?.workoutPlanId === id) {
-              await api.advanceCycle(cycleId);
-            }
-          }
-        }
-      } catch {
-        // Don't block finish UX if advance fails
-      }
+      const cycleId = localStorage.getItem(ACTIVE_CYCLE_KEY) || undefined;
+      await api.finishWorkoutSession(sessionId, {
+        durationSec,
+        cycleId,
+      });
 
       clearDraft(id);
       setFinalDurationSec(durationSec);

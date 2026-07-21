@@ -109,10 +109,15 @@ export const api = {
     request<Cycle>('/v1/cycles', { method: 'POST', body: JSON.stringify(body) }),
   replaceCycleSteps: (id: string, body: ReplaceCycleStepsBody) =>
     request<Cycle>(`/v1/cycles/${id}/steps`, { method: 'PUT', body: JSON.stringify(body) }),
-  advanceCycle: (id: string) =>
-    request<Cycle>(`/v1/cycles/${id}/advance`, { method: 'POST', body: '{}' }),
+  advanceCycle: (id: string, sessionId?: string) =>
+    request<Cycle>(`/v1/cycles/${id}/advance`, {
+      method: 'POST',
+      body: JSON.stringify(sessionId ? { sessionId } : {}),
+    }),
   restartCycle: (id: string) =>
     request<Cycle>(`/v1/cycles/${id}/restart`, { method: 'POST', body: '{}' }),
+  repeatCycle: (id: string) =>
+    request<Cycle>(`/v1/cycles/${id}/repeat`, { method: 'POST', body: '{}' }),
   setCycleOnHome: (id: string, onHome: boolean) =>
     request<Cycle>(`/v1/cycles/${id}/on-home`, {
       method: 'PUT',
@@ -131,7 +136,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
   getWorkoutSession: (id: string) => request<WorkoutSession>(`/v1/workout-sessions/${id}`),
-  finishWorkoutSession: (id: string, body: { durationSec: number }) =>
+  finishWorkoutSession: (id: string, body: { durationSec: number; cycleId?: string }) =>
     request<WorkoutSession>(`/v1/workout-sessions/${id}/finish`, {
       method: 'POST',
       body: JSON.stringify(body),

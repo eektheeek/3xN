@@ -177,7 +177,9 @@ func (r *Repository) StartWorkoutSession(performedAt string, isDeload bool, work
 }
 
 // FinishWorkoutSession stores total duration for a session.
-func (r *Repository) FinishWorkoutSession(sessionID string, durationSec int) (models.WorkoutSession, error) {
+// If cycleID is set and the session matches that cycle's current step, advances the cycle
+// in the same request (links the session to the completed step).
+func (r *Repository) FinishWorkoutSession(sessionID string, durationSec int, cycleID string) (models.WorkoutSession, error) {
 	if durationSec < 0 {
 		return models.WorkoutSession{}, fmt.Errorf("durationSec must be >= 0")
 	}
@@ -196,7 +198,37 @@ func (r *Repository) FinishWorkoutSession(sessionID string, durationSec int) (mo
 	if n == 0 {
 		return models.WorkoutSession{}, ErrNotFound
 	}
+
+	cycleID = strings.TrimSpace(cycleID)
+	if cycleID != "" {
+		session, err := r.GetWorkoutSession(sessionID)
+		if err != nil {
+			return models.WorkoutSession{}, err
+		}
+		cycle, err := r.GetCycle(cycleID)
+		if err != nil {
+			return models.WorkoutSession{}, fmt.Errorf("cycle: %w", err)
+		}
+		if !cycle.Completed && len(cycle.Steps) > 0 {
+			step, ok := cycleStepAt(cycle, cycle.CurrentStep)
+			if ok && session.WorkoutPlanID != "" && step.WorkoutPlanID == session.WorkoutPlanID {
+				if _, err := r.AdvanceCycle(cycleID, sessionID); err != nil {
+					return models.WorkoutSession{}, fmt.Errorf("advance cycle after finish: %w", err)
+				}
+			}
+		}
+	}
+
 	return r.GetWorkoutSession(sessionID)
+}
+
+func cycleStepAt(c models.Cycle, position int) (models.CycleStep, bool) {
+	for _, s := range c.Steps {
+		if s.Position == position {
+			return s, true
+		}
+	}
+	return models.CycleStep{}, false
 }
 
 // SaveSessionExercise upserts one exercise block inside an existing session.
@@ -311,10 +343,15 @@ func (r *Repository) ListWorkoutSessions() ([]models.WorkoutSessionSummary, erro
 	rows, err := r.db.Query(
 		`SELECT ws.id, ws.performed_at, ws.is_deload, ws.created_at, ws.duration_sec,
 		        COUNT(wse.id) AS exercise_count,
-		        GROUP_CONCAT(e.name, char(31) ORDER BY wse.position) AS exercise_names
+		        GROUP_CONCAT(e.name, char(31) ORDER BY wse.position) AS exercise_names,
+		        MAX(c.id) AS cycle_id,
+		        MAX(c.name) AS cycle_name,
+		        MAX(cs.position) AS cycle_step
 		 FROM workout_sessions ws
 		 INNER JOIN workout_session_exercises wse ON wse.workout_session_id = ws.id
 		 INNER JOIN exercises e ON e.id = wse.exercise_id
+		 LEFT JOIN cycle_steps cs ON cs.completed_session_id = ws.id
+		 LEFT JOIN cycles c ON c.id = cs.cycle_id
 		 GROUP BY ws.id
 		 ORDER BY ws.performed_at DESC`,
 	)
@@ -328,9 +365,11 @@ func (r *Repository) ListWorkoutSessions() ([]models.WorkoutSessionSummary, erro
 		var s models.WorkoutSessionSummary
 		var deload int
 		var namesRaw sql.NullString
+		var cycleID, cycleName sql.NullString
+		var cycleStep sql.NullInt64
 		if err := rows.Scan(
 			&s.ID, &s.PerformedAt, &deload, &s.CreatedAt, &s.DurationSec,
-			&s.ExerciseCount, &namesRaw,
+			&s.ExerciseCount, &namesRaw, &cycleID, &cycleName, &cycleStep,
 		); err != nil {
 			return nil, fmt.Errorf("scan workout session summary: %w", err)
 		}
@@ -339,6 +378,15 @@ func (r *Repository) ListWorkoutSessions() ([]models.WorkoutSessionSummary, erro
 			s.ExerciseNames = strings.Split(namesRaw.String, "\x1f")
 		} else {
 			s.ExerciseNames = []string{}
+		}
+		if cycleID.Valid {
+			s.CycleID = cycleID.String
+		}
+		if cycleName.Valid {
+			s.CycleName = cycleName.String
+		}
+		if cycleStep.Valid {
+			s.CycleStep = int(cycleStep.Int64)
 		}
 		out = append(out, s)
 	}
@@ -357,13 +405,20 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 	var deload int
 	var startedAt sql.NullString
 	var planID sql.NullString
+	var cycleID, cycleName sql.NullString
+	var cycleStep sql.NullInt64
 	err := r.db.QueryRow(
-		`SELECT id, performed_at, is_deload, created_at, started_at, duration_sec, workout_plan_id
-		 FROM workout_sessions WHERE id = ?`,
+		`SELECT ws.id, ws.performed_at, ws.is_deload, ws.created_at, ws.started_at, ws.duration_sec, ws.workout_plan_id,
+		        c.id, c.name, cs.position
+		 FROM workout_sessions ws
+		 LEFT JOIN cycle_steps cs ON cs.completed_session_id = ws.id
+		 LEFT JOIN cycles c ON c.id = cs.cycle_id
+		 WHERE ws.id = ?`,
 		id,
 	).Scan(
 		&session.ID, &session.PerformedAt, &deload, &session.CreatedAt,
 		&startedAt, &session.DurationSec, &planID,
+		&cycleID, &cycleName, &cycleStep,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.WorkoutSession{}, ErrNotFound
@@ -377,6 +432,15 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 	}
 	if planID.Valid {
 		session.WorkoutPlanID = planID.String
+	}
+	if cycleID.Valid {
+		session.CycleID = cycleID.String
+	}
+	if cycleName.Valid {
+		session.CycleName = cycleName.String
+	}
+	if cycleStep.Valid {
+		session.CycleStep = int(cycleStep.Int64)
 	}
 
 	exRows, err := r.db.Query(

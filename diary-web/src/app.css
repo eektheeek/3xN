@@ -102,6 +102,212 @@ h2 {
   background: linear-gradient(180deg, #f0faf2 0%, var(--surface) 100%);
 }
 
+.cycle-timeline-wrap {
+  margin-top: 0.15rem;
+}
+
+.cycle-timeline__progress {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.cycle-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cycle-timeline__item {
+  display: grid;
+  grid-template-columns: 1.75rem 1fr;
+  gap: 0.65rem;
+  min-height: 2.5rem;
+}
+
+.cycle-timeline__rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cycle-timeline__node {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  z-index: 1;
+}
+
+.cycle-timeline__node--summary {
+  border-color: #34c759;
+  background: #34c759;
+  color: #fff;
+  font-size: 0.7rem;
+}
+
+.cycle-timeline__node--more {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.cycle-timeline__node--finish {
+  border-color: #1c1c1e;
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #1c1c1e 25%, transparent 25%),
+    linear-gradient(-45deg, #1c1c1e 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1c1c1e 75%),
+    linear-gradient(-45deg, transparent 75%, #1c1c1e 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+  color: transparent;
+  box-shadow: 0 0 0 2px #34c759;
+}
+
+.cycle-timeline__line {
+  flex: 1;
+  width: 2px;
+  min-height: 0.65rem;
+  background: var(--border);
+  margin: 0.15rem 0;
+}
+
+.cycle-timeline__line--done {
+  background: #34c759;
+}
+
+.cycle-timeline__label {
+  padding-top: 0.2rem;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.cycle-timeline__name {
+  display: block;
+}
+
+.cycle-timeline__meta {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.cycle-timeline__label--done-link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-decoration: none;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cycle-timeline__label--done-link .cycle-timeline__name {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.cycle-timeline__label--done-link:active .cycle-timeline__meta {
+  color: var(--accent);
+}
+
+.cycle-timeline__label--summary,
+.cycle-timeline__label--more {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.cycle-timeline__label--toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  margin: 0;
+  padding: 0.15rem 0 0.35rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--muted);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cycle-timeline__label--toggle .cycle-timeline__hint {
+  font-size: 0.75rem;
+}
+
+.cycle-timeline__item--done .cycle-timeline__node:not(.cycle-timeline__node--finish) {
+  border-color: #34c759;
+  background: #34c759;
+  color: #fff;
+}
+
+.cycle-timeline__item--done .cycle-timeline__name {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.cycle-timeline__item--current .cycle-timeline__node {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+.cycle-timeline__item--current .cycle-timeline__label {
+  font-weight: 600;
+}
+
+.cycle-timeline__item--upcoming .cycle-timeline__label {
+  color: var(--muted);
+}
+
+.cycle-timeline__label--action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0.15rem 0 0.5rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cycle-timeline__hint {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.cycle-timeline__label--action:active .cycle-timeline__hint {
+  color: var(--accent-pressed);
+}
+
 .card__title {
   margin: 0 0 0.5rem;
   font-size: 0.9rem;
@@ -562,11 +768,26 @@ h2 {
   margin: 0 0 0.35rem;
 }
 
+.diary-detail__cycle {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.diary-detail__cycle a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
 .diary-detail__duration {
   margin: 0 0 1rem;
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text);
+}
+
+.list-item__meta--cycle {
+  color: var(--accent);
+  font-weight: 500;
 }
 
 .workout-timer {

@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import type { Cycle, Exercise, WorkoutPlan } from '../types';
 import { ACTIVE_CYCLE_KEY } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { CycleTimeline } from '../components/CycleTimeline';
 
 function formatTarget(ex: Exercise): string | null {
   if (!ex.target) return null;
@@ -18,18 +19,12 @@ function writeActiveCycleId(id: string) {
   localStorage.setItem(ACTIVE_CYCLE_KEY, id);
 }
 
-function currentStepOf(cycle: Cycle) {
-  if (cycle.completed || cycle.steps.length === 0) return null;
-  return cycle.steps.find((s) => s.position === cycle.currentStep) ?? null;
-}
-
 export function WorkoutPlanList(_props: RoutableProps) {
   const [plans, setPlans] = useState<WorkoutPlan[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [restartingId, setRestartingId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([api.listWorkoutPlans(), api.listExercises(), api.listCycles()])
@@ -42,18 +37,7 @@ export function WorkoutPlanList(_props: RoutableProps) {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleRestart = async (cycleId: string) => {
-    setError('');
-    setRestartingId(cycleId);
-    try {
-      const updated = await api.restartCycle(cycleId);
-      setCycles((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось перезапустить цикл');
-    } finally {
-      setRestartingId(null);
-    }
-  };
+  const homeCycles = cycles.filter((c) => c.onHome && !c.completed);
 
   const startFromCycle = (cycleId: string, planId: string) => {
     writeActiveCycleId(cycleId);
@@ -87,64 +71,34 @@ export function WorkoutPlanList(_props: RoutableProps) {
       {!loading && (
         <section style="margin-bottom:1.5rem">
           <h2 class="section-title">Циклы</h2>
-          {cycles.filter((c) => c.onHome).length === 0 ? (
+          {homeCycles.length === 0 ? (
             <p class="muted">
               На главной пока пусто. В{' '}
               <a href="/cycles">Циклах</a> отметьте нужные или пройдите шаг — отметка появится сама.
             </p>
           ) : (
             <ul class="list">
-              {cycles
-                .filter((c) => c.onHome)
-                .map((cycle) => {
-                const step = currentStepOf(cycle);
-                return (
+              {homeCycles.map((cycle) => (
                   <li
                     key={cycle.id}
-                    class={`card${cycle.completed ? ' card--cycle-done' : ''}`}
+                    class="card"
                     style="padding:1rem;list-style:none"
                   >
-                    <h3 style="margin:0 0 0.5rem;font-size:1.1rem">{cycle.name}</h3>
+                    <h3 style="margin:0 0 0.35rem;font-size:1.1rem">{cycle.name}</h3>
 
                     {cycle.steps.length === 0 ? (
                       <p class="muted" style="margin:0">
                         Нет шагов.{' '}
                         <a href={`/cycles/${cycle.id}`}>Добавьте тренировки</a>.
                       </p>
-                    ) : cycle.completed ? (
-                      <>
-                        <p class="muted" style="margin:0 0 0.75rem">
-                          Завершён · {cycle.steps.length} шагов
-                        </p>
-                        <button
-                          type="button"
-                          class="btn btn-secondary btn-block"
-                          disabled={restartingId === cycle.id}
-                          onClick={() => void handleRestart(cycle.id)}
-                        >
-                          {restartingId === cycle.id ? '…' : 'Сначала'}
-                        </button>
-                      </>
-                    ) : step ? (
-                      <>
-                        <p class="muted" style="margin:0 0 0.35rem">
-                          Шаг {cycle.currentStep} из {cycle.steps.length}
-                        </p>
-                        <p style="margin:0 0 0.75rem;font-size:1.15rem;font-weight:600">
-                          {step.workoutPlanName}
-                        </p>
-                        <button
-                          type="button"
-                          class="btn btn-primary btn-block"
-                          onClick={() => startFromCycle(cycle.id, step.workoutPlanId)}
-                        >
-                          Начать
-                        </button>
-                      </>
-                    ) : null}
+                    ) : (
+                      <CycleTimeline
+                        cycle={cycle}
+                        onStartCurrent={(step) => startFromCycle(cycle.id, step.workoutPlanId)}
+                      />
+                    )}
                   </li>
-                );
-              })}
+                ))}
             </ul>
           )}
         </section>

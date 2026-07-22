@@ -566,6 +566,11 @@ h2 {
   color: #2e7d32;
 }
 
+.badge--warn {
+  background: #ffebee;
+  color: #c62828;
+}
+
 .sync-banner {
   margin: 0 0 0.75rem;
   padding: 0.65rem 0.85rem;
@@ -720,6 +725,18 @@ h2 {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.debug-link-row {
+  margin: 2rem 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.debug-link-row a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .view-toggle {

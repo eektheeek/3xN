@@ -151,6 +151,30 @@ export async function countPendingOps(sessionId?: string): Promise<number> {
   ).length;
 }
 
+/** All sync ops across sessions (for debug UI). */
+export async function listAllSyncOps(): Promise<SyncOp[]> {
+  const db = await openOfflineDB();
+  const ops = await db.getAll(SYNC_STORE.syncOps);
+  return ops.sort((a, b) => {
+    const bySession = a.sessionId.localeCompare(b.sessionId);
+    if (bySession !== 0) return bySession;
+    return a.seq - b.seq;
+  });
+}
+
+/** Reset failed/stuck ops to pending so SyncWorker can retry. Does not delete data. */
+export async function requeueFailedAndStuckOps(): Promise<number> {
+  const ops = await listAllSyncOps();
+  let n = 0;
+  for (const op of ops) {
+    if (op.status === 'failed' || op.status === 'syncing') {
+      await markOp(op.id, { status: 'pending', lastError: undefined });
+      n += 1;
+    }
+  }
+  return n;
+}
+
 export async function deleteOpsForSession(sessionId: string): Promise<void> {
   const db = await openOfflineDB();
   const ops = await listOpsForSession(sessionId);

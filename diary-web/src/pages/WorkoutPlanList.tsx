@@ -235,6 +235,10 @@ export function WorkoutPlanList(_props: RoutableProps) {
           })}
         </ul>
       </section>
+
+      <p class="debug-link-row">
+        <a href="/debug/sync">Sync debug</a>
+      </p>
     </div>
   );
 }

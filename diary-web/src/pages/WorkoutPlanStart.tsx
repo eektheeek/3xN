@@ -1,23 +1,16 @@
 import { useEffect, useState } from 'preact/hooks';
 import { route } from 'preact-router';
 import type { RoutableProps } from 'preact-router';
-import type { CreateSetBody, Exercise } from '../types';
+import { api } from '../api/client';
+import type { ActiveWorkoutDraft, CreateSetBody, Exercise } from '../types';
+import { ACTIVE_CYCLE_KEY } from '../types';
+import { clearDraft, readDraft, writeDraft } from '../utils/activeWorkout';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { SyncStatusBanner } from '../components/SyncStatusBanner';
 import { SetRow } from '../components/SetRow';
 import { TabataTimer } from '../components/TabataTimer';
 import { formatDuration } from '../utils/dates';
 import { formatExerciseStats, formatTargetLabel } from '../utils/workoutStats';
 import { preloadTabataAudio, unlockAudio } from '../utils/beep';
-import {
-  defaultSetsForExercise,
-  finishLocalWorkout,
-  getResumableLocalSession,
-  persistLocalLogs,
-  saveLocalExerciseResult,
-} from '../sync/localWorkout';
-import { useSyncBanner } from '../sync/useSyncBanner';
-import { requestSync } from '../sync/syncWorker';
 
 interface WorkoutPlanStartProps extends RoutableProps {
   id?: string;
@@ -27,6 +20,42 @@ type ExerciseLog = {
   exercise: Exercise;
   sets: CreateSetBody[];
 };
+
+function defaultSets(exercise: Exercise): CreateSetBody[] {
+  const n = exercise.target?.sets ?? 3;
+  const isHold = exercise.kind === 'hold';
+  const reps = isHold ? 0 : (exercise.target?.reps ?? 12);
+  const durationSec = isHold ? (exercise.target?.holdSec ?? 60) : 0;
+  const weightKg = exercise.target?.weightKg ?? 0;
+  const assistKg = isHold ? 0 : (exercise.target?.assistKg ?? 0);
+  return Array.from({ length: n }, (_, i) => ({
+    setNumber: i + 1,
+    reps,
+    durationSec,
+    weightKg,
+    assistKg,
+  }));
+}
+
+function setsFromSession(
+  exercise: Exercise,
+  savedSets: {
+    setNumber: number;
+    reps: number;
+    durationSec?: number;
+    weightKg: number;
+    assistKg: number;
+  }[],
+): CreateSetBody[] {
+  if (savedSets.length === 0) return defaultSets(exercise);
+  return savedSets.map((s) => ({
+    setNumber: s.setNumber,
+    reps: s.reps,
+    durationSec: s.durationSec ?? 0,
+    weightKg: s.weightKg,
+    assistKg: s.assistKg,
+  }));
+}
 
 function elapsedSec(startedAt: string): number {
   const t = Date.parse(startedAt);
@@ -48,7 +77,6 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
   const [done, setDone] = useState(false);
   const [finalDurationSec, setFinalDurationSec] = useState(0);
   const [tabataIndex, setTabataIndex] = useState<number | null>(null);
-  const { offline, pendingCount, syncing, syncError, retry, refresh } = useSyncBanner(sessionId);
 
   const started = Boolean(sessionId && startedAt);
 
@@ -60,30 +88,71 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
     if (!id) return;
     (async () => {
       try {
-        const session = await getResumableLocalSession(id);
-        if (!session) {
+        const plan = await api.getWorkoutPlan(id);
+        setPlanName(plan.name);
+
+        const draft = readDraft(id);
+        let activeSessionId = draft?.sessionId || null;
+        let activeStartedAt = draft?.startedAt || null;
+        let savedIds = new Set(draft?.savedExerciseIds ?? []);
+        let sessionExercises: { exerciseId: string; sets?: CreateSetBody[] }[] = [];
+
+        if (activeSessionId) {
+          try {
+            const session = await api.getWorkoutSession(activeSessionId);
+            if (session.durationSec > 0) {
+              clearDraft(id);
+              activeSessionId = null;
+              activeStartedAt = null;
+              savedIds = new Set();
+            } else {
+              sessionExercises = (session.exercises ?? []).map((ex) => ({
+                exerciseId: ex.exerciseId,
+                sets: ex.sets?.map((s) => ({
+                  setNumber: s.setNumber,
+                  reps: s.reps,
+                  durationSec: s.durationSec ?? 0,
+                  weightKg: s.weightKg,
+                  assistKg: s.assistKg,
+                })),
+              }));
+              savedIds = new Set(sessionExercises.map((ex) => ex.exerciseId));
+              activeStartedAt = session.startedAt || activeStartedAt;
+            }
+          } catch {
+            activeSessionId = null;
+            activeStartedAt = null;
+            savedIds = new Set();
+            sessionExercises = [];
+          }
+        }
+
+        if (!activeSessionId || !activeStartedAt) {
           route(`/workouts/${id}`, true);
           return;
         }
 
-        const exerciseById = new Map(session.exerciseSnapshots.map((e) => [e.id, e]));
         const items: ExerciseLog[] = [];
-        for (const slot of session.planSnapshot.exercises ?? []) {
-          const exercise = exerciseById.get(slot.exerciseId);
-          if (!exercise) continue;
-          const log = session.logs.find((l) => l.exerciseId === exercise.id);
-          items.push({
-            exercise,
-            sets: log?.sets.length ? log.sets : defaultSetsForExercise(exercise),
-          });
+        for (const slot of plan.exercises ?? []) {
+          const exercise = await api.getExercise(slot.exerciseId);
+          const draftLog = draft?.logs.find((l) => l.exerciseId === exercise.id);
+          const sessionEx = sessionExercises.find((ex) => ex.exerciseId === exercise.id);
+
+          let sets = defaultSets(exercise);
+          if (draftLog?.sets.length) {
+            sets = draftLog.sets;
+          } else if (sessionEx?.sets?.length) {
+            sets = setsFromSession(exercise, sessionEx.sets);
+          }
+
+          items.push({ exercise, sets });
         }
 
-        setPlanName(session.planSnapshot.name);
-        setSessionId(session.id);
-        setStartedAt(session.startedAt);
+        setSessionId(activeSessionId);
+        setStartedAt(activeStartedAt);
+        setSavedExerciseIds(savedIds);
         setLogs(items);
-        setElapsed(elapsedSec(session.startedAt));
-        requestSync();
+        setElapsed(elapsedSec(activeStartedAt));
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Ошибка загрузки');
       } finally {
@@ -93,19 +162,19 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
   }, [id]);
 
   useEffect(() => {
-    if (!sessionId || loading || !started) return;
-    void persistLocalLogs(
+    if (!id || loading || !started || !sessionId || !startedAt) return;
+    const draft: ActiveWorkoutDraft = {
       sessionId,
-      logs.map((log, i) => ({
+      planId: id,
+      startedAt,
+      savedExerciseIds: [...savedExerciseIds],
+      logs: logs.map((log) => ({
         exerciseId: log.exercise.id,
-        position: i + 1,
         sets: log.sets,
       })),
-      [...savedExerciseIds],
-    ).catch(() => {
-      // IndexedDB write failures surface on next explicit save/finish.
-    });
-  }, [logs, sessionId, loading, started, savedExerciseIds]);
+    };
+    writeDraft(id, draft);
+  }, [id, loading, logs, sessionId, startedAt, savedExerciseIds, started]);
 
   useEffect(() => {
     if (!startedAt || done) return;
@@ -133,9 +202,11 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
     setSavingIndex(logIndex);
     setError('');
     try {
-      await saveLocalExerciseResult(sessionId, log.exercise.id, logIndex + 1, log.sets);
+      await api.saveSessionExercise(sessionId, log.exercise.id, {
+        position: logIndex + 1,
+        sets: log.sets,
+      });
       setSavedExerciseIds((prev) => new Set(prev).add(log.exercise.id));
-      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить');
     } finally {
@@ -152,14 +223,22 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
       for (let i = 0; i < logs.length; i++) {
         const log = logs[i];
         if (!savedExerciseIds.has(log.exercise.id)) {
-          await saveLocalExerciseResult(sessionId, log.exercise.id, i + 1, log.sets);
+          await api.saveSessionExercise(sessionId, log.exercise.id, {
+            position: i + 1,
+            sets: log.sets,
+          });
         }
       }
       const durationSec = elapsedSec(startedAt);
-      await finishLocalWorkout(sessionId, durationSec);
+      const cycleId = localStorage.getItem(ACTIVE_CYCLE_KEY) || undefined;
+      await api.finishWorkoutSession(sessionId, {
+        durationSec,
+        cycleId,
+      });
+
+      clearDraft(id);
       setFinalDurationSec(durationSec);
       setDone(true);
-      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить');
     } finally {
@@ -179,21 +258,10 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
     return (
       <div class="page page--center">
         <h1>Готово</h1>
-        <p class="muted">
-          {pendingCount === 0 && !syncing && !syncError
-            ? `Тренировка «${planName}» сохранена.`
-            : `Тренировка «${planName}» сохранена на телефоне.`}
-        </p>
+        <p class="muted">Тренировка «{planName}» сохранена.</p>
         {finalDurationSec > 0 && (
           <p class="muted">Время: {formatDuration(finalDurationSec)}</p>
         )}
-        <SyncStatusBanner
-          offline={offline}
-          pendingCount={pendingCount}
-          syncing={syncing}
-          message={syncError || undefined}
-          onRetry={retry}
-        />
         <a href="/" class="btn btn-primary">
           На главную
         </a>
@@ -213,13 +281,6 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
         <h1>{planName || 'Тренировка'}</h1>
       </header>
 
-      <SyncStatusBanner
-        offline={offline}
-        pendingCount={pendingCount}
-        syncing={syncing}
-        message={syncError || undefined}
-        onRetry={retry}
-      />
       <ErrorBanner message={error} />
       {loading && <p class="muted">Загрузка…</p>}
 
@@ -260,8 +321,7 @@ export function WorkoutPlanStart({ id }: WorkoutPlanStartProps) {
                   <p class="exercise-block__stats">
                     {formatExerciseStats(log.sets, {
                       kind: log.exercise.kind ?? 'reps',
-                      withTonnage:
-                        (log.exercise.kind ?? 'reps') !== 'hold' && !log.exercise.supportsAssist,
+                      withTonnage: (log.exercise.kind ?? 'reps') !== 'hold' && !log.exercise.supportsAssist,
                     })}
                   </p>
                   {canTabata && protocol && !tabataOpen && (

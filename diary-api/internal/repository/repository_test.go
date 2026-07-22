@@ -6,7 +6,6 @@ import (
 
 	"github.com/eektheeek/dead-lift-project/diary-api/internal/db"
 	"github.com/eektheeek/dead-lift-project/diary-api/internal/repository"
-	"github.com/google/uuid"
 )
 
 func TestExerciseTargetAndWorkoutSession(t *testing.T) {
@@ -75,7 +74,7 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 		t.Fatalf("expected cleared assist on listed exercise, got %+v", list)
 	}
 
-	session, _, err := repo.StartWorkoutSession(uuid.NewString(), "2026-07-16T18:00:00Z", false, "")
+	session, err := repo.StartWorkoutSession("2026-07-16T18:00:00Z", false, "")
 	if err != nil {
 		t.Fatalf("start workout session: %v", err)
 	}
@@ -247,7 +246,7 @@ func TestCycleStepsAndAdvance(t *testing.T) {
 		t.Fatalf("advance should pin cycle to home: %+v", cycle)
 	}
 
-	session, _, err := repo.StartWorkoutSession(uuid.NewString(), "2026-07-20T10:00:00Z", false, planB.ID)
+	session, err := repo.StartWorkoutSession("2026-07-20T10:00:00Z", false, planB.ID)
 	if err != nil {
 		t.Fatalf("start session for link: %v", err)
 	}
@@ -325,7 +324,7 @@ func TestCycleStepsAndAdvance(t *testing.T) {
 		t.Fatalf("original history changed: %+v %v", still, err)
 	}
 
-	session2, _, err := repo.StartWorkoutSession(uuid.NewString(), "2026-07-20T11:00:00Z", false, planB.ID)
+	session2, err := repo.StartWorkoutSession("2026-07-20T11:00:00Z", false, planB.ID)
 	if err != nil {
 		t.Fatalf("start with plan: %v", err)
 	}
@@ -362,7 +361,7 @@ func TestHoldExerciseTargetAndSets(t *testing.T) {
 		t.Fatalf("unexpected hold target: %+v", target)
 	}
 
-	session, _, err := repo.StartWorkoutSession(uuid.NewString(), "2026-07-21T12:00:00Z", false, "")
+	session, err := repo.StartWorkoutSession("2026-07-21T12:00:00Z", false, "")
 	if err != nil {
 		t.Fatalf("start session: %v", err)
 	}
@@ -391,50 +390,6 @@ func TestHoldExerciseTargetAndSets(t *testing.T) {
 	}
 	if sum != 155 {
 		t.Fatalf("expected total hold 155s, got %d", sum)
-	}
-}
-
-func TestStartWorkoutSessionClientIDRequiredAndIdempotent(t *testing.T) {
-	sqlDB, err := db.Open(filepath.Join(t.TempDir(), "start-id.db"), filepath.Join("..", "..", "migrations"))
-	if err != nil {
-		t.Fatalf("open db: %v", err)
-	}
-	t.Cleanup(func() { _ = sqlDB.Close() })
-	repo := repository.New(sqlDB)
-
-	if _, _, err := repo.StartWorkoutSession("", "2026-07-22T12:00:00Z", false, ""); err == nil {
-		t.Fatal("expected error for empty id")
-	}
-	if _, _, err := repo.StartWorkoutSession("not-a-uuid", "2026-07-22T12:00:00Z", false, ""); err == nil {
-		t.Fatal("expected error for invalid uuid")
-	}
-
-	id := uuid.NewString()
-	first, created, err := repo.StartWorkoutSession(id, "2026-07-22T12:00:00Z", false, "")
-	if err != nil || !created {
-		t.Fatalf("first start: created=%v err=%v", created, err)
-	}
-	if first.ID != id {
-		t.Fatalf("expected client id %s, got %s", id, first.ID)
-	}
-
-	second, createdAgain, err := repo.StartWorkoutSession(id, "2026-07-22T13:00:00Z", true, "")
-	if err != nil || createdAgain {
-		t.Fatalf("replay start: created=%v err=%v", createdAgain, err)
-	}
-	if second.ID != id {
-		t.Fatalf("replay id mismatch: %s", second.ID)
-	}
-	if second.IsDeload != first.IsDeload {
-		t.Fatalf("idempotent replay should return original row, got isDeload=%v", second.IsDeload)
-	}
-
-	loaded, err := repo.GetWorkoutSession(id)
-	if err != nil {
-		t.Fatalf("get after replay: %v", err)
-	}
-	if loaded.ID != id || loaded.DurationSec != 0 {
-		t.Fatalf("unexpected session after replay: %+v", loaded)
 	}
 }
 

@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'preact/hooks';
 import { route } from 'preact-router';
 import type { RoutableProps } from 'preact-router';
+import { api } from '../api/client';
 import type { Cycle, Exercise, WorkoutPlan } from '../types';
 import { ACTIVE_CYCLE_KEY } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { SyncStatusBanner } from '../components/SyncStatusBanner';
 import { CycleTimeline } from '../components/CycleTimeline';
-import { loadHomeCatalogCacheFirst, refreshHomeCatalogFromNetwork } from '../sync/catalog';
-import { requestSync } from '../sync/syncWorker';
 
 function formatTarget(ex: Exercise): string | null {
   if (!ex.target) return null;
@@ -32,65 +30,16 @@ export function WorkoutPlanList(_props: RoutableProps) {
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [fromCache, setFromCache] = useState(false);
-  const [offline, setOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
-    const onNet = () => {
-      setOffline(!navigator.onLine);
-      if (navigator.onLine) {
-        requestSync();
-        void refreshHomeCatalogFromNetwork()
-          .then((data) => {
-            setPlans(data.plans);
-            setExercises(data.exercises);
-            setCycles(data.cycles);
-            setFromCache(false);
-            setError('');
-          })
-          .catch(() => {
-            /* keep cached UI */
-          });
-      }
-    };
-    window.addEventListener('online', onNet);
-    window.addEventListener('offline', onNet);
-    return () => {
-      window.removeEventListener('online', onNet);
-      window.removeEventListener('offline', onNet);
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const apply = (data: {
-        plans: WorkoutPlan[];
-        exercises: Exercise[];
-        cycles: Cycle[];
-        fromCache: boolean;
-      }) => {
-        if (cancelled) return;
-        setPlans(data.plans);
-        setExercises(data.exercises);
-        setCycles(data.cycles);
-        setFromCache(data.fromCache);
-        setError('');
-        setLoading(false);
-      };
-
-      const data = await loadHomeCatalogCacheFirst((fresh) => apply(fresh));
-      if (cancelled) return;
-      if (data) {
-        apply(data);
-        return;
-      }
-      setError('Не удалось загрузить каталог');
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    Promise.all([api.listWorkoutPlans(), api.listExercises(), api.listCycles()])
+      .then(([p, e, c]) => {
+        setPlans(p);
+        setExercises(e);
+        setCycles(c);
+      })
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const homeCycles = cycles.filter((c) => c.onHome && !c.completed);
@@ -117,15 +66,6 @@ export function WorkoutPlanList(_props: RoutableProps) {
         </div>
       </header>
 
-      <SyncStatusBanner
-        offline={offline}
-        pendingCount={0}
-        message={
-          fromCache && !offline
-            ? 'Показан сохранённый каталог (нет связи с API)'
-            : undefined
-        }
-      />
       <ErrorBanner message={error} />
 
       {loading && <p class="muted">Загрузка…</p>}
@@ -141,22 +81,26 @@ export function WorkoutPlanList(_props: RoutableProps) {
           ) : (
             <ul class="list">
               {homeCycles.map((cycle) => (
-                <li key={cycle.id} class="card" style="padding:1rem;list-style:none">
-                  <h3 style="margin:0 0 0.35rem;font-size:1.1rem">{cycle.name}</h3>
+                  <li
+                    key={cycle.id}
+                    class="card"
+                    style="padding:1rem;list-style:none"
+                  >
+                    <h3 style="margin:0 0 0.35rem;font-size:1.1rem">{cycle.name}</h3>
 
-                  {cycle.steps.length === 0 ? (
-                    <p class="muted" style="margin:0">
-                      Нет шагов.{' '}
-                      <a href={`/cycles/${cycle.id}`}>Добавьте тренировки</a>.
-                    </p>
-                  ) : (
-                    <CycleTimeline
-                      cycle={cycle}
-                      onStartCurrent={(step) => startFromCycle(cycle.id, step.workoutPlanId)}
-                    />
-                  )}
-                </li>
-              ))}
+                    {cycle.steps.length === 0 ? (
+                      <p class="muted" style="margin:0">
+                        Нет шагов.{' '}
+                        <a href={`/cycles/${cycle.id}`}>Добавьте тренировки</a>.
+                      </p>
+                    ) : (
+                      <CycleTimeline
+                        cycle={cycle}
+                        onStartCurrent={(step) => startFromCycle(cycle.id, step.workoutPlanId)}
+                      />
+                    )}
+                  </li>
+                ))}
             </ul>
           )}
         </section>
@@ -176,14 +120,7 @@ export function WorkoutPlanList(_props: RoutableProps) {
           {plans.map((plan) => (
             <li key={plan.id}>
               <a href={`/workouts/${plan.id}`} class="list-item">
-                <span class="list-item__title">
-                  {plan.name}
-                  {(offline || fromCache) && (
-                    <span class="badge badge--muted" style="margin-left:0.4rem">
-                      офлайн
-                    </span>
-                  )}
-                </span>
+                <span class="list-item__title">{plan.name}</span>
                 <span class="list-item__meta">{plan.exercises?.length ?? 0} упражн.</span>
                 {plan.exercises && plan.exercises.length > 0 && (
                   <div class="chip-row">

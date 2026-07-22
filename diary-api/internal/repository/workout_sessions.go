@@ -134,10 +134,26 @@ func (r *Repository) CreateWorkoutSession(in CreateWorkoutSessionInput) (models.
 }
 
 // StartWorkoutSession creates an empty session for incremental logging.
-func (r *Repository) StartWorkoutSession(performedAt string, isDeload bool, workoutPlanID string) (models.WorkoutSession, error) {
+// id is required (client-generated UUID). Replaying the same id returns the existing row.
+// created is false when the session already existed (idempotent replay).
+func (r *Repository) StartWorkoutSession(id, performedAt string, isDeload bool, workoutPlanID string) (models.WorkoutSession, bool, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return models.WorkoutSession{}, false, fmt.Errorf("id is required")
+	}
+	if _, err := uuid.Parse(id); err != nil {
+		return models.WorkoutSession{}, false, fmt.Errorf("id must be a valid UUID")
+	}
+
+	if existing, err := r.GetWorkoutSession(id); err == nil {
+		return existing, false, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return models.WorkoutSession{}, false, err
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339)
 	session := models.WorkoutSession{
-		ID:            uuid.NewString(),
+		ID:            id,
 		PerformedAt:   performedAt,
 		StartedAt:     now,
 		DurationSec:   0,
@@ -154,10 +170,10 @@ func (r *Repository) StartWorkoutSession(performedAt string, isDeload bool, work
 		var exists int
 		err := r.db.QueryRow(`SELECT 1 FROM workout_plans WHERE id = ?`, workoutPlanID).Scan(&exists)
 		if errors.Is(err, sql.ErrNoRows) {
-			return models.WorkoutSession{}, fmt.Errorf("workout plan %s: %w", workoutPlanID, ErrNotFound)
+			return models.WorkoutSession{}, false, fmt.Errorf("workout plan %s: %w", workoutPlanID, ErrNotFound)
 		}
 		if err != nil {
-			return models.WorkoutSession{}, fmt.Errorf("check workout plan: %w", err)
+			return models.WorkoutSession{}, false, fmt.Errorf("check workout plan: %w", err)
 		}
 	}
 
@@ -173,9 +189,9 @@ func (r *Repository) StartWorkoutSession(performedAt string, isDeload bool, work
 		session.StartedAt, session.DurationSec, planArg,
 	)
 	if err != nil {
-		return models.WorkoutSession{}, fmt.Errorf("insert workout session: %w", err)
+		return models.WorkoutSession{}, false, fmt.Errorf("insert workout session: %w", err)
 	}
-	return session, nil
+	return session, true, nil
 }
 
 // FinishWorkoutSession stores total duration for a session.

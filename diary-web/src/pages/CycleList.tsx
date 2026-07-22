@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import type { Cycle } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { CycleTimeline } from '../components/CycleTimeline';
+import { cacheCycles } from '../sync/catalog';
 
 function CycleCard({
   cycle,
@@ -79,7 +80,10 @@ export function CycleList(_props: RoutableProps) {
   const reload = () =>
     api
       .listCycles()
-      .then(setCycles)
+      .then(async (list) => {
+        setCycles(list);
+        await cacheCycles(list);
+      })
       .catch((e: Error) => setError(e.message));
 
   useEffect(() => {

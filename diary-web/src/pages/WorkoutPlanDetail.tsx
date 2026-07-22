@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'preact/hooks';
 import { route } from 'preact-router';
 import type { RoutableProps } from 'preact-router';
-import { api } from '../api/client';
-import type { WorkoutPlan } from '../types';
-import { clearDraft, readDraft, writeDraft } from '../utils/activeWorkout';
+import type { Exercise, WorkoutPlan } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { SyncStatusBanner } from '../components/SyncStatusBanner';
+import {
+  getResumableLocalSession,
+  loadPlanBundle,
+  startLocalWorkout,
+} from '../sync/localWorkout';
+import { useSyncBanner } from '../sync/useSyncBanner';
 
 interface WorkoutPlanDetailProps extends RoutableProps {
   id?: string;
@@ -12,62 +17,69 @@ interface WorkoutPlanDetailProps extends RoutableProps {
 
 export function WorkoutPlanDetail({ id }: WorkoutPlanDetailProps) {
   const [plan, setPlan] = useState<WorkoutPlan | null>(null);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [canResume, setCanResume] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const { offline, pendingCount, syncing, syncError, retry } = useSyncBanner(activeSessionId);
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     (async () => {
-      try {
-        const p = await api.getWorkoutPlan(id);
+      const applyBundle = async (bundle: {
+        plan: WorkoutPlan;
+        exercises: Exercise[];
+        fromCache: boolean;
+      }) => {
         if (cancelled) return;
-        setPlan(p);
-
-        const draft = readDraft(id);
-        if (!draft?.sessionId) return;
-        try {
-          const session = await api.getWorkoutSession(draft.sessionId);
-          if (cancelled) return;
-          if (session.durationSec > 0) {
-            clearDraft(id);
-          } else {
-            setCanResume(true);
-          }
-        } catch {
-          clearDraft(id);
+        setPlan(bundle.plan);
+        setExercises(bundle.exercises);
+        setError('');
+        setLoading(false);
+        const active = await getResumableLocalSession(id);
+        if (!cancelled) {
+          setCanResume(Boolean(active));
+          setActiveSessionId(active?.id ?? null);
         }
+      };
+
+      try {
+        const bundle = await loadPlanBundle(id, (fresh) => {
+          void applyBundle(fresh);
+        });
+        if (cancelled) return;
+        if (!bundle) {
+          setError(
+            offline
+              ? 'План недоступен офлайн. Открой его хотя бы раз с интернетом.'
+              : 'Не удалось загрузить тренировку',
+          );
+          setLoading(false);
+          return;
+        }
+        await applyBundle(bundle);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Ошибка загрузки');
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Ошибка загрузки');
+          setLoading(false);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, offline]);
 
   const handleStart = async () => {
-    if (!id) return;
+    if (!id || !plan) return;
     setStarting(true);
     setError('');
     try {
-      const session = await api.startWorkoutSession({
-        performedAt: new Date().toISOString(),
-        isDeload: false,
-        workoutPlanId: id,
-      });
-      const startedAt = session.startedAt || new Date().toISOString();
-      writeDraft(id, {
-        sessionId: session.id,
-        planId: id,
-        startedAt,
-        savedExerciseIds: [],
-        logs: [],
-      });
+      const session = await startLocalWorkout({ plan, exercises });
+      setActiveSessionId(session.id);
       route(`/workouts/${id}/start`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось начать');
@@ -93,6 +105,13 @@ export function WorkoutPlanDetail({ id }: WorkoutPlanDetailProps) {
         <h1>{plan?.name ?? 'Тренировка'}</h1>
       </header>
 
+      <SyncStatusBanner
+        offline={offline}
+        pendingCount={pendingCount}
+        syncing={syncing}
+        message={syncError || undefined}
+        onRetry={retry}
+      />
       <ErrorBanner message={error} />
       {loading && <p class="muted">Загрузка…</p>}
 

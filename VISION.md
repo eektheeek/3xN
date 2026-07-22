@@ -85,13 +85,13 @@ Two stack levels. The session level already exists in product; **cycles** are th
 - [ ] **Light / rehab branches** + merge back to main track
 - [ ] Auto progression of targets after successful main-track steps
 - [ ] Auto rest timer after checking off a strength set
-- [ ] Offline-first session logging + sync
+- [x] Offline-first session logging + sync (client UUID, IndexedDB `workout_sessions` + `sync_ops`, catalog cache, SyncWorker; PWA Service Worker shell still optional)
 - [ ] “Suggested protocols” from history
 - [x] Multiple active UI affordances for switching cycles on home
 - [x] Workout builder UI: session stack from catalog + per-exercise tabata
 - [x] Exercise catalog DB/API
 - [x] Saved session templates (`workout_plans`)
-- [ ] Cycle builder: assemble templates + cursor + home “current step”
+- [x] Cycle builder: assemble templates + cursor + home “current step”
 
 ## Changelog (vision)
 
@@ -102,3 +102,4 @@ Two stack levels. The session level already exists in product; **cycles** are th
 | 2026-07-20 | Added **training cycles** (multi, named) on top of session templates; preferred gym path = current step of a cycle (anti-calendar). Diary remains history. Recovery windows / branches stay in backlog |
 | 2026-07-20 | Renamed program→cycle; removed singleton `main` id |
 | 2026-07-21 | **v1.1:** exercise kinds `reps` \| `hold`. Hold = multi-set timed goals (e.g. 3×60s) with optional load weight; log actual seconds (+ kg) per set; stats = total hold time as ч/м/с. Assist stays for reps. Tabata attachable as before. No dedicated hold start/stop timer in v1.1 (manual seconds). |
+| 2026-07-22 | **Offline-first gym logging (v1):** workout session id is always **client-generated UUID**; `POST /workout-sessions/start` requires `id` and is idempotent. Web app stores active sessions + ordered `sync_ops` in IndexedDB, caches plans/exercises/cycles, loads **cache-first**, SyncWorker replays start → saveExercise → finish when online. Service Worker (PWA shell for cold start offline) deferred. |

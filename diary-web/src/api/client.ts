@@ -130,7 +130,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
   listWorkoutSessions: () => request<WorkoutSessionSummary[]>('/v1/workout-sessions'),
-  startWorkoutSession: (body: StartWorkoutSessionBody = {}) =>
+  startWorkoutSession: (body: StartWorkoutSessionBody) =>
     request<WorkoutSession>('/v1/workout-sessions/start', {
       method: 'POST',
       body: JSON.stringify(body),

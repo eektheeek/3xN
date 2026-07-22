@@ -116,29 +116,44 @@ func (a *API) GetWorkoutSession(w http.ResponseWriter, r *http.Request) {
 }
 
 type startWorkoutSessionRequest struct {
+	ID            string `json:"id"`
 	PerformedAt   string `json:"performedAt"`
 	IsDeload      bool   `json:"isDeload"`
 	WorkoutPlanID string `json:"workoutPlanId"`
 }
 
 // StartWorkoutSession handles POST /v1/workout-sessions/start.
+// Client must supply id (UUID). Replaying the same id is idempotent (200).
 func (a *API) StartWorkoutSession(w http.ResponseWriter, r *http.Request) {
 	var req startWorkoutSessionRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
+	if strings.TrimSpace(req.ID) == "" {
+		writeError(w, http.StatusBadRequest, "id is required")
+		return
+	}
 
-	session, err := a.repo.StartWorkoutSession(req.PerformedAt, req.IsDeload, req.WorkoutPlanID)
+	session, created, err := a.repo.StartWorkoutSession(req.ID, req.PerformedAt, req.IsDeload, req.WorkoutPlanID)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "workout plan not found")
 		return
 	}
 	if err != nil {
+		msg := err.Error()
+		if strings.Contains(msg, "id is required") || strings.Contains(msg, "id must be a valid UUID") {
+			writeError(w, http.StatusBadRequest, msg)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to start workout session")
 		return
 	}
-	writeJSON(w, http.StatusCreated, session)
+	if created {
+		writeJSON(w, http.StatusCreated, session)
+		return
+	}
+	writeJSON(w, http.StatusOK, session)
 }
 
 type finishWorkoutSessionRequest struct {

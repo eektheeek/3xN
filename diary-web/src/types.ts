@@ -190,6 +190,7 @@ export interface SaveSessionExerciseBody {
 }
 
 export interface StartWorkoutSessionBody {
+  id: string;
   performedAt?: string;
   isDeload?: boolean;
   workoutPlanId?: string;

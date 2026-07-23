@@ -20,7 +20,8 @@ import type {
   WorkoutSessionSummary,
 } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+// Empty = same-origin (Vite proxies /v1 → diary-api). Set VITE_API_URL for a remote API host.
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 class ApiError extends Error {
   status: number;
@@ -48,7 +49,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new ApiError(0, 'Сервер не отвечает (таймаут). Проверь, что API запущен.');
     }
-    throw new ApiError(0, 'Нет связи с API. Проверь Wi‑Fi и VITE_API_URL.');
+    throw new ApiError(0, 'Нет связи с API. Проверь Wi‑Fi и что diary-api запущен.');
   } finally {
     window.clearTimeout(timeoutId);
   }

@@ -1,4 +1,4 @@
-# Diary Web
+# 3xN
 
 Mobile PWA built with Preact. Talks to [diary-api](../diary-api).
 

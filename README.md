@@ -1,4 +1,4 @@
-# Dead Lift Project
+# 3xN
 
 Training diary product. Product vision: [VISION.md](VISION.md).
 

@@ -42,6 +42,8 @@ body {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 .page {
@@ -571,6 +573,56 @@ h2 {
   color: #c62828;
 }
 
+.tunnel-always-bar {
+  margin-top: auto;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.dev-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 1.5rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  font-size: 0.8rem;
+}
+
+.dev-footer a,
+.dev-footer .linkish {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dev-footer .linkish {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tunnel-banner {
+  margin: 0.75rem 1rem 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  background: #fff3e0;
+  color: #e65100;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.tunnel-banner__text {
+  margin-bottom: 0.65rem;
+}
+
+.tunnel-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .sync-banner {
   margin: 0 0 0.75rem;
   padding: 0.65rem 0.85rem;
@@ -737,6 +789,17 @@ h2 {
   color: var(--muted);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.debug-link-row .linkish {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--muted);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 
 .view-toggle {

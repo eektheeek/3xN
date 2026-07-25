@@ -13,11 +13,14 @@ import { ProtocolDetail } from './pages/ProtocolDetail';
 import { CycleList } from './pages/CycleList';
 import { CycleDetail } from './pages/CycleDetail';
 import { SyncDebug } from './pages/SyncDebug';
+import { DevLinksBar } from './components/DevLinksBar';
+import { TunnelGateBanner } from './components/TunnelGateBanner';
 import './app.css';
 
 export function App() {
   return (
     <div class="app-shell">
+      <TunnelGateBanner />
       <Router>
         <WorkoutPlanList path="/" />
         <WorkoutPlanNew path="/workouts/new" />
@@ -34,6 +37,7 @@ export function App() {
         <Diary path="/diary" />
         <SyncDebug path="/debug/sync" />
       </Router>
+      <DevLinksBar />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-# Diary Web
+# 3xN
 
 Mobile PWA built with Preact. Talks to [diary-api](../diary-api).
 
@@ -48,12 +48,17 @@ Both `npm run dev` and `npm run preview` / `npm run start:pwa` use **port 5173**
 # terminal 1 — API
 cd diary-api && go run ./cmd/server
 
-# terminal 2 — front with SW
+# terminal 2 — front with SW (rebuilds every time you run it)
 cd diary-web && npm run start:pwa
 
 # terminal 3 — HTTPS tunnel to the front only
 ngrok http 5173
 ```
+
+After each code change on Mac: **stop** `start:pwa` (Ctrl+C) → run `npm run start:pwa` again.
+`npm run dev` does **not** reliably update the Home Screen PWA (old SW cache).
+
+On the phone, if the UI looks stale: tap **«Обновить приложение»** (clears SW + caches), or open the ngrok URL in Safari and refresh twice.
 
 1. On the phone open the **https://….ngrok…** URL (not the LAN IP).
 2. Load the home screen once online (catalog → IndexedDB, SW installs).

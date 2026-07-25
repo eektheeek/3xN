@@ -12,6 +12,7 @@ import {
   onSyncChange,
   runSync,
 } from '../sync/syncWorker';
+import { openTunnelUnlock } from '../tunnel/gate';
 
 function shortId(id: string): string {
   return id.length <= 12 ? id : `${id.slice(0, 8)}…`;
@@ -151,6 +152,9 @@ export function SyncDebug(_props: RoutableProps) {
             onClick={() => void handleRequeue()}
           >
             Failed → pending + sync
+          </button>
+          <button type="button" class="btn btn-secondary" onClick={() => openTunnelUnlock()}>
+            Разблокировать туннель
           </button>
         </div>
       </section>

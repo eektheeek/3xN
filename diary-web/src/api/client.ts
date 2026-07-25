@@ -19,6 +19,8 @@ import type {
   WorkoutSessionExercise,
   WorkoutSessionSummary,
 } from '../types';
+import { looksLikeNgrokInterstitial } from './ngrokDetect';
+import { clearTunnelBlocked, reportTunnelBlocked } from '../tunnel/gate';
 
 // Empty = same-origin (Vite proxies /v1 → diary-api). Set VITE_API_URL for a remote API host.
 const API_URL = import.meta.env.VITE_API_URL ?? '';
@@ -32,6 +34,21 @@ class ApiError extends Error {
   }
 }
 
+/** Free ngrok returned the Visit Site HTML page instead of API JSON. */
+class NgrokInterstitialError extends ApiError {
+  readonly kind = 'ngrok-interstitial' as const;
+
+  constructor() {
+    super(0, 'Нужно подтвердить доступ к туннелю (Visit Site).');
+  }
+}
+
+function throwIfNgrokInterstitial(body: string, contentType: string | null): void {
+  if (!looksLikeNgrokInterstitial(body, contentType)) return;
+  reportTunnelBlocked();
+  throw new NgrokInterstitialError();
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 15000);
@@ -42,6 +59,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        // Bypasses free-ngrok warning HTML on XHR/fetch (not on full page loads).
+        'ngrok-skip-browser-warning': 'true',
         ...init?.headers,
       },
     });
@@ -54,10 +73,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     window.clearTimeout(timeoutId);
   }
 
+  if (res.status === 204) {
+    clearTunnelBlocked();
+    return undefined as T;
+  }
+
+  const contentType = res.headers.get('content-type');
+  const raw = await res.text();
+  throwIfNgrokInterstitial(raw, contentType);
+
   if (!res.ok) {
-    let message = res.statusText;
+    let message = res.statusText || `HTTP ${res.status}`;
     try {
-      const body = (await res.json()) as { error?: string };
+      const body = JSON.parse(raw) as { error?: string };
       if (body.error) message = body.error;
     } catch {
       // ignore
@@ -65,10 +93,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(res.status, message);
   }
 
-  if (res.status === 204) {
-    return undefined as T;
+  try {
+    const data = JSON.parse(raw) as T;
+    clearTunnelBlocked();
+    return data;
+  } catch {
+    throwIfNgrokInterstitial(raw, contentType || 'text/html');
+    throw new ApiError(0, 'Ответ API не JSON. Проверь туннель и proxy.');
   }
-  return (await res.json()) as T;
 }
 
 export const api = {
@@ -149,4 +181,4 @@ export const api = {
     ),
 };
 
-export { ApiError };
+export { ApiError, NgrokInterstitialError };

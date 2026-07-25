@@ -37,6 +37,8 @@ export default defineConfig({
         // Do not treat missing static files / API paths as SPA routes.
         navigateFallbackDenylist: [/^\/api/, /^\/v1/, /^\/healthz/, /\.[^/]+$/],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,woff2}'],
+        // Must hit the network so free ngrok can show Visit Site in the PWA.
+        globIgnores: ['**/tunnel-unlock.html'],
       },
     }),
   ],

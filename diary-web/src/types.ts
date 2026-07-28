@@ -64,6 +64,8 @@ export interface WorkoutSessionExercise {
   exerciseName?: string;
   kind?: ExerciseKind;
   supportsAssist?: boolean;
+  /** Goal snapshotted when the exercise was saved in the session. */
+  target?: ExerciseTarget;
   sets?: Set[];
 }
 

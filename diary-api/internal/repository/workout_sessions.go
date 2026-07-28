@@ -86,18 +86,28 @@ func (r *Repository) CreateWorkoutSession(in CreateWorkoutSessionInput) (models.
 			return models.WorkoutSession{}, fmt.Errorf("check exercise %s: %w", exIn.ExerciseID, err)
 		}
 
+		target, err := loadExerciseTargetTx(tx, exIn.ExerciseID)
+		if err != nil {
+			return models.WorkoutSession{}, fmt.Errorf("load target for %s: %w", exIn.ExerciseID, err)
+		}
+
 		wse := models.WorkoutSessionExercise{
 			ID:               uuid.NewString(),
 			WorkoutSessionID: session.ID,
 			ExerciseID:       exIn.ExerciseID,
 			Position:         i + 1,
+			Target:           target,
 			Sets:             make([]models.Set, 0, len(exIn.Sets)),
 		}
 
+		snapSets, snapReps, snapHold, snapWeight, snapAssist := targetSnapshotArgs(target)
 		_, err = tx.Exec(
-			`INSERT INTO workout_session_exercises (id, workout_session_id, exercise_id, position)
-			 VALUES (?, ?, ?, ?)`,
+			`INSERT INTO workout_session_exercises (
+			   id, workout_session_id, exercise_id, position,
+			   target_sets, target_reps, target_hold_sec, target_weight_kg, target_assist_kg
+			 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			wse.ID, wse.WorkoutSessionID, wse.ExerciseID, wse.Position,
+			snapSets, snapReps, snapHold, snapWeight, snapAssist,
 		)
 		if err != nil {
 			return models.WorkoutSession{}, fmt.Errorf("insert workout session exercise: %w", err)
@@ -290,6 +300,12 @@ func (r *Repository) SaveSessionExercise(
 		return models.WorkoutSessionExercise{}, fmt.Errorf("check exercise %s: %w", exerciseID, err)
 	}
 
+	target, err := loadExerciseTargetTx(tx, exerciseID)
+	if err != nil {
+		return models.WorkoutSessionExercise{}, fmt.Errorf("load target for %s: %w", exerciseID, err)
+	}
+	snapSets, snapReps, snapHold, snapWeight, snapAssist := targetSnapshotArgs(target)
+
 	var wse models.WorkoutSessionExercise
 	err = tx.QueryRow(
 		`SELECT id, workout_session_id, exercise_id, position
@@ -303,26 +319,35 @@ func (r *Repository) SaveSessionExercise(
 			WorkoutSessionID: sessionID,
 			ExerciseID:       exerciseID,
 			Position:         position,
+			Target:           target,
 		}
 		_, err = tx.Exec(
-			`INSERT INTO workout_session_exercises (id, workout_session_id, exercise_id, position)
-			 VALUES (?, ?, ?, ?)`,
+			`INSERT INTO workout_session_exercises (
+			   id, workout_session_id, exercise_id, position,
+			   target_sets, target_reps, target_hold_sec, target_weight_kg, target_assist_kg
+			 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			wse.ID, wse.WorkoutSessionID, wse.ExerciseID, wse.Position,
+			snapSets, snapReps, snapHold, snapWeight, snapAssist,
 		)
 		if err != nil {
 			return models.WorkoutSessionExercise{}, fmt.Errorf("insert workout session exercise: %w", err)
 		}
 	} else if err != nil {
 		return models.WorkoutSessionExercise{}, fmt.Errorf("find workout session exercise: %w", err)
-	} else if wse.Position != position {
+	} else {
 		_, err = tx.Exec(
-			`UPDATE workout_session_exercises SET position = ? WHERE id = ?`,
-			position, wse.ID,
+			`UPDATE workout_session_exercises
+			 SET position = ?,
+			     target_sets = ?, target_reps = ?, target_hold_sec = ?,
+			     target_weight_kg = ?, target_assist_kg = ?
+			 WHERE id = ?`,
+			position, snapSets, snapReps, snapHold, snapWeight, snapAssist, wse.ID,
 		)
 		if err != nil {
-			return models.WorkoutSessionExercise{}, fmt.Errorf("update position: %w", err)
+			return models.WorkoutSessionExercise{}, fmt.Errorf("update session exercise snapshot: %w", err)
 		}
 		wse.Position = position
+		wse.Target = target
 	}
 
 	if _, err := tx.Exec(`DELETE FROM sets WHERE workout_session_exercise_id = ?`, wse.ID); err != nil {
@@ -464,7 +489,9 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 
 	exRows, err := r.db.Query(
 		`SELECT wse.id, wse.workout_session_id, wse.exercise_id, wse.position,
-		        e.name, e.kind, e.supports_assist
+		        e.name, e.kind, e.supports_assist,
+		        wse.target_sets, wse.target_reps, wse.target_hold_sec,
+		        wse.target_weight_kg, wse.target_assist_kg
 		 FROM workout_session_exercises wse
 		 INNER JOIN exercises e ON e.id = wse.exercise_id
 		 WHERE wse.workout_session_id = ?
@@ -479,14 +506,27 @@ func (r *Repository) GetWorkoutSession(id string) (models.WorkoutSession, error)
 	for exRows.Next() {
 		var wse models.WorkoutSessionExercise
 		var assist int
+		var targetSets, targetReps, targetHoldSec sql.NullInt64
+		var targetWeightKg, targetAssistKg sql.NullFloat64
 		if err := exRows.Scan(
 			&wse.ID, &wse.WorkoutSessionID, &wse.ExerciseID, &wse.Position,
 			&wse.ExerciseName, &wse.Kind, &assist,
+			&targetSets, &targetReps, &targetHoldSec, &targetWeightKg, &targetAssistKg,
 		); err != nil {
 			return models.WorkoutSession{}, fmt.Errorf("scan workout session exercise: %w", err)
 		}
 		wse.Kind = normalizeExerciseKind(wse.Kind)
 		wse.SupportsAssist = assist == 1
+		if targetSets.Valid {
+			wse.Target = &models.ExerciseTarget{
+				ExerciseID: wse.ExerciseID,
+				TargetSets: int(targetSets.Int64),
+				TargetReps: int(targetReps.Int64),
+				HoldSec:    int(targetHoldSec.Int64),
+				WeightKg:   targetWeightKg.Float64,
+				AssistKg:   targetAssistKg.Float64,
+			}
+		}
 
 		sets, err := r.listSets(wse.ID)
 		if err != nil {
@@ -534,4 +574,29 @@ func (r *Repository) listSets(workoutSessionExerciseID string) ([]models.Set, er
 		out = []models.Set{}
 	}
 	return out, nil
+}
+
+// loadExerciseTargetTx returns the current catalog target for an exercise, or nil if unset.
+func loadExerciseTargetTx(tx *sql.Tx, exerciseID string) (*models.ExerciseTarget, error) {
+	var t models.ExerciseTarget
+	err := tx.QueryRow(
+		`SELECT exercise_id, target_sets, target_reps, hold_sec, weight_kg, assist_kg
+		 FROM exercise_targets WHERE exercise_id = ?`,
+		exerciseID,
+	).Scan(&t.ExerciseID, &t.TargetSets, &t.TargetReps, &t.HoldSec, &t.WeightKg, &t.AssistKg)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// targetSnapshotArgs maps a target pointer to nullable INSERT/UPDATE args.
+func targetSnapshotArgs(t *models.ExerciseTarget) (sets, reps, holdSec any, weightKg, assistKg any) {
+	if t == nil {
+		return nil, nil, nil, nil, nil
+	}
+	return t.TargetSets, t.TargetReps, t.HoldSec, t.WeightKg, t.AssistKg
 }

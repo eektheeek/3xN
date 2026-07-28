@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { RoutableProps } from 'preact-router';
 import { api } from '../api/client';
-import type { Exercise, WorkoutSession } from '../types';
+import type { WorkoutSession } from '../types';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { formatSessionDateTime, formatDurationLabel } from '../utils/dates';
 import { formatExerciseStats, formatTargetLabel } from '../utils/workoutStats';
@@ -12,7 +12,6 @@ interface DiarySessionDetailProps extends RoutableProps {
 
 export function DiarySessionDetail({ id }: DiarySessionDetailProps) {
   const [session, setSession] = useState<WorkoutSession | null>(null);
-  const [targets, setTargets] = useState<Map<string, Exercise>>(new Map());
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -20,12 +19,7 @@ export function DiarySessionDetail({ id }: DiarySessionDetailProps) {
     if (!id) return;
     (async () => {
       try {
-        const [loaded, catalog] = await Promise.all([
-          api.getWorkoutSession(id),
-          api.listExercises(),
-        ]);
-        setSession(loaded);
-        setTargets(new Map(catalog.map((ex) => [ex.id, ex])));
+        setSession(await api.getWorkoutSession(id));
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Ошибка загрузки');
       } finally {
@@ -78,12 +72,11 @@ export function DiarySessionDetail({ id }: DiarySessionDetailProps) {
           {session.isDeload && <span class="badge badge--muted">Разгрузка</span>}
 
           {(session.exercises ?? []).map((block) => {
-            const exercise = targets.get(block.exerciseId);
-            const target = exercise?.target;
-            const name = block.exerciseName || exercise?.name || 'Упражнение';
+            const target = block.target;
+            const name = block.exerciseName || 'Упражнение';
             const sets = block.sets ?? [];
-            const kind = block.kind ?? exercise?.kind ?? 'reps';
-            const supportsAssist = block.supportsAssist ?? exercise?.supportsAssist ?? false;
+            const kind = block.kind ?? 'reps';
+            const supportsAssist = block.supportsAssist ?? false;
             const isHold = kind === 'hold';
 
             return (

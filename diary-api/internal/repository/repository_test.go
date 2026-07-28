@@ -134,6 +134,9 @@ func TestExerciseTargetAndWorkoutSession(t *testing.T) {
 	if loaded.Exercises[0].Kind != "reps" {
 		t.Fatalf("expected kind reps on session exercise, got %+v", loaded.Exercises[0])
 	}
+	if loaded.Exercises[0].Target == nil || loaded.Exercises[0].Target.TargetSets != 3 || loaded.Exercises[0].Target.TargetReps != 12 {
+		t.Fatalf("expected target snapshot on session exercise, got %+v", loaded.Exercises[0].Target)
+	}
 
 	fullSession, err := repo.CreateWorkoutSession(repository.CreateWorkoutSessionInput{
 		PerformedAt: "2026-07-16T19:00:00Z",
@@ -385,12 +388,66 @@ func TestHoldExerciseTargetAndSets(t *testing.T) {
 	if loaded.Exercises[0].Kind != "hold" {
 		t.Fatalf("expected hold kind on block: %+v", loaded.Exercises[0])
 	}
+	if loaded.Exercises[0].Target == nil || loaded.Exercises[0].Target.HoldSec != 60 {
+		t.Fatalf("expected hold target snapshot, got %+v", loaded.Exercises[0].Target)
+	}
 	sum := 0
 	for _, s := range loaded.Exercises[0].Sets {
 		sum += s.DurationSec
 	}
 	if sum != 155 {
 		t.Fatalf("expected total hold 155s, got %d", sum)
+	}
+}
+
+func TestSessionExerciseTargetSnapshotStableAfterCatalogChange(t *testing.T) {
+	sqlDB, err := db.Open(filepath.Join(t.TempDir(), "target-snap.db"), filepath.Join("..", "..", "migrations"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	repo := repository.New(sqlDB)
+
+	ex, err := repo.CreateExercise("Squat", "legs", "reps", false, "")
+	if err != nil {
+		t.Fatalf("create exercise: %v", err)
+	}
+	if _, err := repo.SetTarget(ex.ID, 3, 8, 0, 100, 0); err != nil {
+		t.Fatalf("set target: %v", err)
+	}
+
+	session, _, err := repo.StartWorkoutSession(uuid.NewString(), "2026-07-25T10:00:00Z", false, "")
+	if err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	if _, err := repo.SaveSessionExercise(session.ID, 1, ex.ID, []repository.CreateSetInput{
+		{SetNumber: 1, Reps: 8, WeightKg: 100},
+	}); err != nil {
+		t.Fatalf("save session exercise: %v", err)
+	}
+
+	if _, err := repo.SetTarget(ex.ID, 4, 10, 0, 120, 0); err != nil {
+		t.Fatalf("change catalog target: %v", err)
+	}
+
+	loaded, err := repo.GetWorkoutSession(session.ID)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	got := loaded.Exercises[0].Target
+	if got == nil {
+		t.Fatal("expected snapshotted target on session exercise")
+	}
+	if got.TargetSets != 3 || got.TargetReps != 8 || got.WeightKg != 100 {
+		t.Fatalf("snapshot should keep save-time goal 3×8 @100, got %+v", got)
+	}
+
+	catalog, err := repo.GetExercise(ex.ID)
+	if err != nil {
+		t.Fatalf("get exercise: %v", err)
+	}
+	if catalog.Target == nil || catalog.Target.TargetSets != 4 || catalog.Target.TargetReps != 10 {
+		t.Fatalf("catalog target should be updated, got %+v", catalog.Target)
 	}
 }
 

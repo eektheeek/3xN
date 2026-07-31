@@ -40,6 +40,39 @@ type ExerciseTarget struct {
 	AssistKg   float64 `json:"assistKg"` // 0 when unused; only meaningful if exercise.supportsAssist
 }
 
+// StatsPeriod is the query window for exercise history charts.
+const (
+	StatsPeriod30d = "30d"
+	StatsPeriodAll = "all"
+)
+
+// ExerciseStatsPoint is one gym visit where the exercise was logged.
+type ExerciseStatsPoint struct {
+	SessionID     string `json:"sessionId"`
+	PerformedAt   string `json:"performedAt"`
+	IsDeload      bool   `json:"isDeload"`
+	SetsCount     int    `json:"setsCount"`
+	Volume        int    `json:"volume"`                  // reps: Σ reps; hold: Σ durationSec
+	TargetVolume  *int   `json:"targetVolume"`            // snapshot sets×reps or sets×holdSec
+}
+
+// ExerciseStatsSummary aggregates points in the selected period.
+type ExerciseStatsSummary struct {
+	SessionCount int     `json:"sessionCount"`
+	AvgSets      float64 `json:"avgSets"`
+	TotalVolume  int     `json:"totalVolume"`
+}
+
+// ExerciseStats is the response for GET /v1/exercises/{id}/stats.
+type ExerciseStats struct {
+	ExerciseID           string               `json:"exerciseId"`
+	Kind                 string               `json:"kind"`
+	Period               string               `json:"period"`
+	CurrentTargetVolume  *int                 `json:"currentTargetVolume"`
+	Summary              ExerciseStatsSummary `json:"summary"`
+	Points               []ExerciseStatsPoint `json:"points"`
+}
+
 // WorkoutSession is one gym visit / training day.
 type WorkoutSession struct {
 	ID            string                   `json:"id"`

@@ -209,6 +209,32 @@ export interface ActiveWorkoutDraft {
   }[];
 }
 
+export type StatsPeriod = '30d' | 'all';
+
+export interface ExerciseStatsPoint {
+  sessionId: string;
+  performedAt: string;
+  isDeload: boolean;
+  setsCount: number;
+  volume: number;
+  targetVolume: number | null;
+}
+
+export interface ExerciseStatsSummary {
+  sessionCount: number;
+  avgSets: number;
+  totalVolume: number;
+}
+
+export interface ExerciseStats {
+  exerciseId: string;
+  kind: ExerciseKind;
+  period: StatsPeriod;
+  currentTargetVolume: number | null;
+  summary: ExerciseStatsSummary;
+  points: ExerciseStatsPoint[];
+}
+
 export function activeWorkoutKey(planId: string): string {
   return `activeWorkout:${planId}`;
 }

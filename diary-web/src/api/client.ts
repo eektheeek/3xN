@@ -6,12 +6,14 @@ import type {
   CreateWorkoutSessionBody,
   Cycle,
   Exercise,
+  ExerciseStats,
   ExerciseTarget,
   IntervalProtocol,
   ReplaceCycleStepsBody,
   SaveSessionExerciseBody,
   SetTargetBody,
   StartWorkoutSessionBody,
+  StatsPeriod,
   UpdateExerciseBody,
   UpdateIntervalProtocolBody,
   WorkoutPlan,
@@ -115,6 +117,8 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+  getExerciseStats: (id: string, period: StatsPeriod = '30d') =>
+    request<ExerciseStats>(`/v1/exercises/${id}/stats?period=${period}`),
 
   listIntervalProtocols: () => request<IntervalProtocol[]>('/v1/interval-protocols'),
   getIntervalProtocol: (id: string) => request<IntervalProtocol>(`/v1/interval-protocols/${id}`),

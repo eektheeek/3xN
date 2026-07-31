@@ -142,6 +142,34 @@ func (a *API) GetExercise(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ex)
 }
 
+// GetExerciseStats handles GET /v1/exercises/{id}/stats?period=30d|all.
+func (a *API) GetExerciseStats(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		period = models.StatsPeriod30d
+	}
+
+	stats, err := a.repo.GetExerciseStats(id, period)
+	if errors.Is(err, repository.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "exercise not found")
+		return
+	}
+	if errors.Is(err, repository.ErrInvalidPeriod) {
+		writeError(w, http.StatusBadRequest, "period must be 30d or all")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get exercise stats")
+		return
+	}
+	writeJSON(w, http.StatusOK, stats)
+}
+
 // SetTarget handles PUT /v1/exercises/{id}/target.
 func (a *API) SetTarget(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")

@@ -68,11 +68,8 @@ export function Diary(_props: RoutableProps) {
   };
 
   return (
-    <div class="page">
+    <div class="page page--with-tabs">
       <header class="page-header">
-        <a href="/" class="btn btn-ghost">
-          ← Назад
-        </a>
         <h1>Дневник</h1>
       </header>
 

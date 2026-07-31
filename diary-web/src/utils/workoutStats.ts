@@ -27,6 +27,22 @@ export function formatTonnage(kg: number): string {
   return `${kg.toFixed(1)} кг`;
 }
 
+/** Target volume in chart units: sets×reps or sets×holdSec. */
+export function calcTargetVolume(
+  target: Pick<SetTargetBody, 'sets' | 'reps' | 'holdSec'>,
+  kind: ExerciseKind = 'reps',
+): number {
+  if (kind === 'hold') return target.sets * target.holdSec;
+  return target.sets * target.reps;
+}
+
+export function formatVolumeLabel(volume: number, kind: ExerciseKind): string {
+  if (kind === 'hold') {
+    return formatDurationLabel(volume) || '0с';
+  }
+  return String(volume);
+}
+
 export function formatExerciseStats(
   sets: SetLike[],
   opts: { kind?: ExerciseKind; withTonnage?: boolean } = {},

@@ -79,14 +79,15 @@ type CycleStep struct {
 
 // WorkoutSessionExercise is one exercise block inside a workout session.
 type WorkoutSessionExercise struct {
-	ID               string `json:"id"`
-	WorkoutSessionID string `json:"workoutSessionId"`
-	ExerciseID       string `json:"exerciseId"`
-	Position         int    `json:"position"`
-	ExerciseName     string `json:"exerciseName,omitempty"`
-	Kind             string `json:"kind,omitempty"` // reps | hold
-	SupportsAssist   bool   `json:"supportsAssist,omitempty"`
-	Sets             []Set  `json:"sets,omitempty"`
+	ID               string          `json:"id"`
+	WorkoutSessionID string          `json:"workoutSessionId"`
+	ExerciseID       string          `json:"exerciseId"`
+	Position         int             `json:"position"`
+	ExerciseName     string          `json:"exerciseName,omitempty"`
+	Kind             string          `json:"kind,omitempty"` // reps | hold
+	SupportsAssist   bool            `json:"supportsAssist,omitempty"`
+	Target           *ExerciseTarget `json:"target,omitempty"` // goal snapshotted at save time
+	Sets             []Set           `json:"sets,omitempty"`
 }
 
 // WorkoutSessionSummary is a lightweight row for diary list/calendar views.

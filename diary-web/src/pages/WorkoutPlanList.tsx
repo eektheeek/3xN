@@ -101,20 +101,9 @@ export function WorkoutPlanList(_props: RoutableProps) {
   };
 
   return (
-    <div class="page">
+    <div class="page page--with-tabs">
       <header class="page-header">
         <img src="/logo-3xn.jpg" alt="3xN" class="brand-logo" width="48" height="48" />
-        <div class="page-header__actions">
-          <a href="/cycles" class="btn btn-secondary">
-            Циклы
-          </a>
-          <a href="/diary" class="btn btn-secondary">
-            Дневник
-          </a>
-          <a href="/protocols" class="btn btn-secondary">
-            Табаты
-          </a>
-        </div>
       </header>
 
       <SyncStatusBanner

@@ -24,9 +24,9 @@ export function ProtocolList(_props: RoutableProps) {
   }, []);
 
   return (
-    <div class="page">
+    <div class="page page--with-tabs">
       <header class="page-header">
-        <a href="/" class="btn btn-ghost">
+        <a href="/more" class="btn btn-ghost">
           ← Назад
         </a>
         <h1>Табаты</h1>

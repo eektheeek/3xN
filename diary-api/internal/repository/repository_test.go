@@ -1,6 +1,7 @@
 package repository_test
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -494,4 +495,93 @@ func TestStartWorkoutSessionClientIDRequiredAndIdempotent(t *testing.T) {
 		t.Fatalf("unexpected session after replay: %+v", loaded)
 	}
 }
+
+func TestExerciseStatsVolumeAndTarget(t *testing.T) {
+	sqlDB, err := db.Open(filepath.Join(t.TempDir(), "test.db"), filepath.Join("..", "..", "migrations"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
+	repo := repository.New(sqlDB)
+
+	ex, err := repo.CreateExercise("Pull-up", "back", "reps", false, "")
+	if err != nil {
+		t.Fatalf("create exercise: %v", err)
+	}
+	if _, err := repo.SetTarget(ex.ID, 3, 10, 0, 0, 0); err != nil {
+		t.Fatalf("set target: %v", err)
+	}
+
+	s1, err := repo.CreateWorkoutSession(repository.CreateWorkoutSessionInput{
+		PerformedAt: "2026-07-20T10:00:00Z",
+		Exercises: []repository.CreateWorkoutSessionExerciseInput{
+			{
+				ExerciseID: ex.ID,
+				Sets: []repository.CreateSetInput{
+					{SetNumber: 1, Reps: 8},
+					{SetNumber: 2, Reps: 8},
+					{SetNumber: 3, Reps: 8},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create session 1: %v", err)
+	}
+
+	if _, err := repo.SetTarget(ex.ID, 4, 12, 0, 0, 0); err != nil {
+		t.Fatalf("raise target: %v", err)
+	}
+
+	s2, err := repo.CreateWorkoutSession(repository.CreateWorkoutSessionInput{
+		PerformedAt: "2026-07-25T10:00:00Z",
+		Exercises: []repository.CreateWorkoutSessionExerciseInput{
+			{
+				ExerciseID: ex.ID,
+				Sets: []repository.CreateSetInput{
+					{SetNumber: 1, Reps: 12},
+					{SetNumber: 2, Reps: 12},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create session 2: %v", err)
+	}
+
+	stats, err := repo.GetExerciseStats(ex.ID, "all")
+	if err != nil {
+		t.Fatalf("get stats: %v", err)
+	}
+	if stats.Kind != "reps" || stats.Period != "all" {
+		t.Fatalf("unexpected meta: %+v", stats)
+	}
+	if stats.CurrentTargetVolume == nil || *stats.CurrentTargetVolume != 48 {
+		t.Fatalf("expected current target 4×12=48, got %+v", stats.CurrentTargetVolume)
+	}
+	if len(stats.Points) != 2 {
+		t.Fatalf("expected 2 points, got %+v", stats.Points)
+	}
+	if stats.Points[0].SessionID != s1.ID || stats.Points[0].Volume != 24 || stats.Points[0].SetsCount != 3 {
+		t.Fatalf("unexpected point 0: %+v", stats.Points[0])
+	}
+	if stats.Points[0].TargetVolume == nil || *stats.Points[0].TargetVolume != 30 {
+		t.Fatalf("expected snapshot target 3×10=30, got %+v", stats.Points[0].TargetVolume)
+	}
+	if stats.Points[1].SessionID != s2.ID || stats.Points[1].Volume != 24 || stats.Points[1].SetsCount != 2 {
+		t.Fatalf("unexpected point 1: %+v", stats.Points[1])
+	}
+	if stats.Points[1].TargetVolume == nil || *stats.Points[1].TargetVolume != 48 {
+		t.Fatalf("expected snapshot target 4×12=48, got %+v", stats.Points[1].TargetVolume)
+	}
+	if stats.Summary.SessionCount != 2 || stats.Summary.TotalVolume != 48 || stats.Summary.AvgSets != 2.5 {
+		t.Fatalf("unexpected summary: %+v", stats.Summary)
+	}
+
+	if _, err := repo.GetExerciseStats(ex.ID, "week"); !errors.Is(err, repository.ErrInvalidPeriod) {
+		t.Fatalf("expected ErrInvalidPeriod, got %v", err)
+	}
+}
+
 

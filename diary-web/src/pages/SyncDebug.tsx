@@ -13,6 +13,7 @@ import {
   runSync,
 } from '../sync/syncWorker';
 import { openTunnelUnlock } from '../tunnel/gate';
+import { formatSessionDateTime } from '../utils/dates';
 
 function shortId(id: string): string {
   return id.length <= 12 ? id : `${id.slice(0, 8)}…`;
@@ -29,6 +30,17 @@ function opSummary(op: SyncOp): string {
     return `plan ${shortId(op.payload.planId)}`;
   }
   return '';
+}
+
+function opDatesLine(op: SyncOp): string {
+  const parts = [`создана ${formatSessionDateTime(op.createdAt)}`];
+  if (op.type === 'start' && 'performedAt' in op.payload) {
+    parts.push(`тренировка ${formatSessionDateTime(op.payload.performedAt)}`);
+  }
+  if (op.syncedAt) {
+    parts.push(`синк ${formatSessionDateTime(op.syncedAt)}`);
+  }
+  return parts.join(' · ');
 }
 
 function sessionSummary(s: LocalWorkoutSession): string {
@@ -194,6 +206,7 @@ export function SyncDebug(_props: RoutableProps) {
                     {op.status}
                   </span>
                 </span>
+                <span class="list-item__meta">{opDatesLine(op)}</span>
                 <span class="list-item__meta">session {shortId(op.sessionId)}</span>
                 <span class="list-item__meta">{opSummary(op)}</span>
                 <span class="list-item__meta">

@@ -22,6 +22,9 @@ func main() {
 	defer sqlDB.Close()
 
 	repo := repository.New(sqlDB)
+	if err := repo.EnsureBootstrapOwner(); err != nil {
+		log.Fatalf("bootstrap owner: %v", err)
+	}
 	api := handlers.NewAPI(repo)
 	mux := handlers.NewMux(api)
 

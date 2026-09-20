@@ -21,7 +21,7 @@ export type {
   WorkoutSessionSyncStatus,
 } from './types';
 
-export { SYNC_DB_NAME, SYNC_DB_VERSION, SYNC_STORE } from './types';
+export { SYNC_DB_NAME, SYNC_DB_NAME_PREFIX, SYNC_DB_VERSION, SYNC_STORE } from './types';
 
 export {
   closeOfflineDB,

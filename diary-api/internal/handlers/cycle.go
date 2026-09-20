@@ -10,7 +10,7 @@ import (
 
 // ListCycles handles GET /v1/cycles.
 func (a *API) ListCycles(w http.ResponseWriter, r *http.Request) {
-	cycles, err := a.repo.ListCycles()
+	cycles, err := a.repo.ListCycles(userIDFromRequest(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list cycles")
 		return
@@ -25,7 +25,7 @@ func (a *API) GetCycle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "id is required")
 		return
 	}
-	cycle, err := a.repo.GetCycle(id)
+	cycle, err := a.repo.GetCycle(userIDFromRequest(r), id)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "cycle not found")
 		return
@@ -53,7 +53,7 @@ func (a *API) CreateCycle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	cycle, err := a.repo.CreateCycle(req.Name)
+	cycle, err := a.repo.CreateCycle(userIDFromRequest(r), req.Name)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -81,7 +81,7 @@ func (a *API) ReplaceCycleSteps(w http.ResponseWriter, r *http.Request) {
 		req.WorkoutPlanIDs = []string{}
 	}
 
-	cycle, err := a.repo.ReplaceCycleSteps(id, req.WorkoutPlanIDs)
+	cycle, err := a.repo.ReplaceCycleSteps(userIDFromRequest(r), id, req.WorkoutPlanIDs)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "cycle or workout plan not found")
 		return
@@ -109,7 +109,7 @@ func (a *API) AdvanceCycle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	cycle, err := a.repo.AdvanceCycle(id, strings.TrimSpace(req.SessionID))
+	cycle, err := a.repo.AdvanceCycle(userIDFromRequest(r), id, strings.TrimSpace(req.SessionID))
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "cycle not found")
 		return
@@ -128,7 +128,7 @@ func (a *API) RestartCycle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "id is required")
 		return
 	}
-	cycle, err := a.repo.RestartCycle(id)
+	cycle, err := a.repo.RestartCycle(userIDFromRequest(r), id)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "cycle not found")
 		return
@@ -156,7 +156,7 @@ func (a *API) SetCycleOnHome(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
-	cycle, err := a.repo.SetCycleOnHome(id, req.OnHome)
+	cycle, err := a.repo.SetCycleOnHome(userIDFromRequest(r), id, req.OnHome)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "cycle not found")
 		return
@@ -175,7 +175,7 @@ func (a *API) RepeatCycle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "id is required")
 		return
 	}
-	cycle, err := a.repo.RepeatCycle(id)
+	cycle, err := a.repo.RepeatCycle(userIDFromRequest(r), id)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "cycle not found")
 		return

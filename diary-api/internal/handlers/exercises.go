@@ -49,6 +49,7 @@ func (a *API) CreateExercise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ex, err := a.repo.CreateExercise(
+		userIDFromRequest(r),
 		req.Name,
 		strings.TrimSpace(req.MuscleGroup),
 		strings.TrimSpace(req.Kind),
@@ -94,6 +95,7 @@ func (a *API) UpdateExercise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ex, err := a.repo.UpdateExercise(
+		userIDFromRequest(r),
 		id,
 		req.Name,
 		strings.TrimSpace(req.MuscleGroup),
@@ -114,7 +116,7 @@ func (a *API) UpdateExercise(w http.ResponseWriter, r *http.Request) {
 
 // ListExercises handles GET /v1/exercises.
 func (a *API) ListExercises(w http.ResponseWriter, r *http.Request) {
-	list, err := a.repo.ListExercises()
+	list, err := a.repo.ListExercises(userIDFromRequest(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list exercises")
 		return
@@ -130,7 +132,7 @@ func (a *API) GetExercise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ex, err := a.repo.GetExercise(id)
+	ex, err := a.repo.GetExercise(userIDFromRequest(r), id)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "exercise not found")
 		return
@@ -154,7 +156,7 @@ func (a *API) GetExerciseStats(w http.ResponseWriter, r *http.Request) {
 		period = models.StatsPeriod30d
 	}
 
-	stats, err := a.repo.GetExerciseStats(id, period)
+	stats, err := a.repo.GetExerciseStats(userIDFromRequest(r), id, period)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "exercise not found")
 		return
@@ -196,7 +198,7 @@ func (a *API) SetTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ex, err := a.repo.GetExercise(id)
+	ex, err := a.repo.GetExercise(userIDFromRequest(r), id)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "exercise not found")
 		return
@@ -215,7 +217,7 @@ func (a *API) SetTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	target, err := a.repo.SetTarget(id, req.Sets, req.Reps, req.HoldSec, req.WeightKg, req.AssistKg)
+	target, err := a.repo.SetTarget(userIDFromRequest(r), id, req.Sets, req.Reps, req.HoldSec, req.WeightKg, req.AssistKg)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "exercise not found")
 		return

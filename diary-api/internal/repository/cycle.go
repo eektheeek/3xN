@@ -42,10 +42,11 @@ func scanCycleRow(scanner interface {
 	return c, nil
 }
 
-// ListCycles returns all training cycles with steps (newest first).
-func (r *Repository) ListCycles() ([]models.Cycle, error) {
+// ListCycles returns training cycles owned by userID (newest first).
+func (r *Repository) ListCycles(userID string) ([]models.Cycle, error) {
 	rows, err := r.db.Query(
-		`SELECT id, name, current_step, on_home, created_at FROM cycles ORDER BY created_at DESC`,
+		`SELECT id, name, current_step, on_home, created_at FROM cycles WHERE user_id = ? ORDER BY created_at DESC`,
+		userID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list cycles: %w", err)
@@ -75,11 +76,11 @@ func (r *Repository) ListCycles() ([]models.Cycle, error) {
 	return out, nil
 }
 
-// GetCycle returns one cycle with steps.
-func (r *Repository) GetCycle(id string) (models.Cycle, error) {
+// GetCycle returns one cycle with steps owned by userID.
+func (r *Repository) GetCycle(userID, id string) (models.Cycle, error) {
 	c, err := scanCycleRow(r.db.QueryRow(
-		`SELECT id, name, current_step, on_home, created_at FROM cycles WHERE id = ?`,
-		id,
+		`SELECT id, name, current_step, on_home, created_at FROM cycles WHERE id = ? AND user_id = ?`,
+		id, userID,
 	))
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.Cycle{}, ErrNotFound
@@ -96,8 +97,8 @@ func (r *Repository) GetCycle(id string) (models.Cycle, error) {
 	return c, nil
 }
 
-// CreateCycle creates an empty named cycle.
-func (r *Repository) CreateCycle(name string) (models.Cycle, error) {
+// CreateCycle creates an empty named cycle for userID.
+func (r *Repository) CreateCycle(userID, name string) (models.Cycle, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return models.Cycle{}, fmt.Errorf("name is required")
@@ -112,8 +113,8 @@ func (r *Repository) CreateCycle(name string) (models.Cycle, error) {
 		Steps:       []models.CycleStep{},
 	}
 	_, err := r.db.Exec(
-		`INSERT INTO cycles (id, name, current_step, on_home, created_at) VALUES (?, ?, 1, 0, ?)`,
-		c.ID, c.Name, c.CreatedAt,
+		`INSERT INTO cycles (id, name, current_step, on_home, created_at, user_id) VALUES (?, ?, 1, 0, ?, ?)`,
+		c.ID, c.Name, c.CreatedAt, userID,
 	)
 	if err != nil {
 		return models.Cycle{}, fmt.Errorf("insert cycle: %w", err)
@@ -165,7 +166,7 @@ func (r *Repository) listCycleSteps(cycleID string) ([]models.CycleStep, error) 
 }
 
 // ReplaceCycleSteps replaces the full ordered list of workout_plan IDs for a cycle.
-func (r *Repository) ReplaceCycleSteps(cycleID string, workoutPlanIDs []string) (models.Cycle, error) {
+func (r *Repository) ReplaceCycleSteps(userID, cycleID string, workoutPlanIDs []string) (models.Cycle, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return models.Cycle{}, fmt.Errorf("begin tx: %w", err)
@@ -173,7 +174,7 @@ func (r *Repository) ReplaceCycleSteps(cycleID string, workoutPlanIDs []string) 
 	defer func() { _ = tx.Rollback() }()
 
 	var exists int
-	err = tx.QueryRow(`SELECT 1 FROM cycles WHERE id = ?`, cycleID).Scan(&exists)
+	err = tx.QueryRow(`SELECT 1 FROM cycles WHERE id = ? AND user_id = ?`, cycleID, userID).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.Cycle{}, ErrNotFound
 	}
@@ -186,7 +187,7 @@ func (r *Repository) ReplaceCycleSteps(cycleID string, workoutPlanIDs []string) 
 			return models.Cycle{}, fmt.Errorf("workoutPlanId at index %d is empty", i)
 		}
 		var planExists int
-		err := tx.QueryRow(`SELECT 1 FROM workout_plans WHERE id = ?`, planID).Scan(&planExists)
+		err := tx.QueryRow(`SELECT 1 FROM workout_plans WHERE id = ? AND user_id = ?`, planID, userID).Scan(&planExists)
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.Cycle{}, fmt.Errorf("workout plan %s: %w", planID, ErrNotFound)
 		}
@@ -234,13 +235,13 @@ func (r *Repository) ReplaceCycleSteps(cycleID string, workoutPlanIDs []string) 
 	if err := tx.Commit(); err != nil {
 		return models.Cycle{}, fmt.Errorf("commit: %w", err)
 	}
-	return r.GetCycle(cycleID)
+	return r.GetCycle(userID, cycleID)
 }
 
 // AdvanceCycle moves to the next step; finishing the last step marks the cycle completed.
 // Optional sessionID links the step being finished to a diary workout session.
-func (r *Repository) AdvanceCycle(cycleID string, sessionID string) (models.Cycle, error) {
-	c, err := r.GetCycle(cycleID)
+func (r *Repository) AdvanceCycle(userID, cycleID string, sessionID string) (models.Cycle, error) {
+	c, err := r.GetCycle(userID, cycleID)
 	if err != nil {
 		return models.Cycle{}, err
 	}
@@ -261,7 +262,7 @@ func (r *Repository) AdvanceCycle(cycleID string, sessionID string) (models.Cycl
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID != "" {
 		var exists int
-		err = tx.QueryRow(`SELECT 1 FROM workout_sessions WHERE id = ?`, sessionID).Scan(&exists)
+		err = tx.QueryRow(`SELECT 1 FROM workout_sessions WHERE id = ? AND user_id = ?`, sessionID, userID).Scan(&exists)
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.Cycle{}, fmt.Errorf("workout session not found")
 		}
@@ -293,12 +294,12 @@ func (r *Repository) AdvanceCycle(cycleID string, sessionID string) (models.Cycl
 	if err := tx.Commit(); err != nil {
 		return models.Cycle{}, fmt.Errorf("commit: %w", err)
 	}
-	return r.GetCycle(cycleID)
+	return r.GetCycle(userID, cycleID)
 }
 
 // SetCycleOnHome toggles whether the cycle appears on the home screen.
-func (r *Repository) SetCycleOnHome(cycleID string, onHome bool) (models.Cycle, error) {
-	c, err := r.GetCycle(cycleID)
+func (r *Repository) SetCycleOnHome(userID, cycleID string, onHome bool) (models.Cycle, error) {
+	c, err := r.GetCycle(userID, cycleID)
 	if err != nil {
 		return models.Cycle{}, err
 	}
@@ -306,8 +307,8 @@ func (r *Repository) SetCycleOnHome(cycleID string, onHome bool) (models.Cycle, 
 		return models.Cycle{}, fmt.Errorf("completed cycle cannot be pinned to home; use Repeat")
 	}
 	res, err := r.db.Exec(
-		`UPDATE cycles SET on_home = ? WHERE id = ?`,
-		boolToInt(onHome), cycleID,
+		`UPDATE cycles SET on_home = ? WHERE id = ? AND user_id = ?`,
+		boolToInt(onHome), cycleID, userID,
 	)
 	if err != nil {
 		return models.Cycle{}, fmt.Errorf("set cycle on_home: %w", err)
@@ -319,12 +320,12 @@ func (r *Repository) SetCycleOnHome(cycleID string, onHome bool) (models.Cycle, 
 	if n == 0 {
 		return models.Cycle{}, ErrNotFound
 	}
-	return r.GetCycle(cycleID)
+	return r.GetCycle(userID, cycleID)
 }
 
 // RepeatCycle clones a cycle (usually completed) into a fresh active run with the same steps.
-func (r *Repository) RepeatCycle(cycleID string) (models.Cycle, error) {
-	src, err := r.GetCycle(cycleID)
+func (r *Repository) RepeatCycle(userID, cycleID string) (models.Cycle, error) {
+	src, err := r.GetCycle(userID, cycleID)
 	if err != nil {
 		return models.Cycle{}, err
 	}
@@ -341,8 +342,8 @@ func (r *Repository) RepeatCycle(cycleID string) (models.Cycle, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	newID := uuid.NewString()
 	_, err = tx.Exec(
-		`INSERT INTO cycles (id, name, current_step, on_home, created_at) VALUES (?, ?, 1, 1, ?)`,
-		newID, src.Name, now,
+		`INSERT INTO cycles (id, name, current_step, on_home, created_at, user_id) VALUES (?, ?, 1, 1, ?, ?)`,
+		newID, src.Name, now, userID,
 	)
 	if err != nil {
 		return models.Cycle{}, fmt.Errorf("insert repeated cycle: %w", err)
@@ -360,23 +361,23 @@ func (r *Repository) RepeatCycle(cycleID string) (models.Cycle, error) {
 	if err := tx.Commit(); err != nil {
 		return models.Cycle{}, fmt.Errorf("commit: %w", err)
 	}
-	return r.GetCycle(newID)
+	return r.GetCycle(userID, newID)
 }
 
 // RestartCycle resets the cursor to step 1 (keeps on_home as-is).
 // Prefer RepeatCycle for completed runs so history is preserved.
-func (r *Repository) RestartCycle(cycleID string) (models.Cycle, error) {
+func (r *Repository) RestartCycle(userID, cycleID string) (models.Cycle, error) {
 	var exists int
-	err := r.db.QueryRow(`SELECT 1 FROM cycles WHERE id = ?`, cycleID).Scan(&exists)
+	err := r.db.QueryRow(`SELECT 1 FROM cycles WHERE id = ? AND user_id = ?`, cycleID, userID).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.Cycle{}, ErrNotFound
 	}
 	if err != nil {
 		return models.Cycle{}, fmt.Errorf("check cycle: %w", err)
 	}
-	_, err = r.db.Exec(`UPDATE cycles SET current_step = 1 WHERE id = ?`, cycleID)
+	_, err = r.db.Exec(`UPDATE cycles SET current_step = 1 WHERE id = ? AND user_id = ?`, cycleID, userID)
 	if err != nil {
 		return models.Cycle{}, fmt.Errorf("restart cycle: %w", err)
 	}
-	return r.GetCycle(cycleID)
+	return r.GetCycle(userID, cycleID)
 }

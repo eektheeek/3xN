@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import { getAuthUser } from '../auth/session';
 import type { CatalogCache, LocalWorkoutSession, SyncOp } from './types';
-import { SYNC_DB_NAME, SYNC_DB_VERSION, SYNC_STORE } from './types';
+import { SYNC_DB_NAME_PREFIX, SYNC_DB_VERSION, SYNC_STORE } from './types';
 
 interface DiaryOfflineDB extends DBSchema {
   [SYNC_STORE.workoutSessions]: {
@@ -29,11 +30,19 @@ interface DiaryOfflineDB extends DBSchema {
 export type OfflineDB = IDBPDatabase<DiaryOfflineDB>;
 
 let dbPromise: Promise<OfflineDB> | null = null;
+let openedName = '';
 
-/** Open (or reuse) the offline IndexedDB. */
+export function syncDbNameForUser(userId?: string | null): string {
+  const id = userId || getAuthUser()?.id || 'anon';
+  return `${SYNC_DB_NAME_PREFIX}-${id}`;
+}
+
+/** Open (or reuse) the offline IndexedDB for the current user. */
 export function openOfflineDB(): Promise<OfflineDB> {
-  if (!dbPromise) {
-    dbPromise = openDB<DiaryOfflineDB>(SYNC_DB_NAME, SYNC_DB_VERSION, {
+  const name = syncDbNameForUser();
+  if (!dbPromise || openedName !== name) {
+    openedName = name;
+    dbPromise = openDB<DiaryOfflineDB>(name, SYNC_DB_VERSION, {
       upgrade(db) {
         if (!db.objectStoreNames.contains(SYNC_STORE.workoutSessions)) {
           const sessions = db.createObjectStore(SYNC_STORE.workoutSessions, {
@@ -65,13 +74,15 @@ export async function closeOfflineDB(): Promise<void> {
   const db = await dbPromise;
   db.close();
   dbPromise = null;
+  openedName = '';
 }
 
 /** Test helper: delete the whole DB (browser / fake-indexeddb). */
 export async function deleteOfflineDB(): Promise<void> {
+  const name = openedName || syncDbNameForUser();
   await closeOfflineDB();
   await new Promise<void>((resolve, reject) => {
-    const req = indexedDB.deleteDatabase(SYNC_DB_NAME);
+    const req = indexedDB.deleteDatabase(name);
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error ?? new Error('deleteDatabase failed'));
     req.onblocked = () => resolve();

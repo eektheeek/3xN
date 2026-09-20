@@ -9,6 +9,7 @@ describe('shouldShowTabBar', () => {
     expect(shouldShowTabBar('/more')).toBe(true);
     expect(shouldShowTabBar('/cycles')).toBe(true);
     expect(shouldShowTabBar('/protocols')).toBe(true);
+    expect(shouldShowTabBar('/settings')).toBe(true);
   });
 
   it('hides on deep screens', () => {
@@ -24,5 +25,6 @@ describe('activeTabForPath', () => {
     expect(activeTabForPath('/more')).toBe('more');
     expect(activeTabForPath('/cycles')).toBe('more');
     expect(activeTabForPath('/protocols')).toBe('more');
+    expect(activeTabForPath('/settings')).toBe('more');
   });
 });

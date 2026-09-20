@@ -1,3 +1,4 @@
+import type { AuthUser } from '../auth/session';
 import type {
   CreateCycleBody,
   CreateExerciseBody,
@@ -23,6 +24,7 @@ import type {
 } from '../types';
 import { looksLikeNgrokInterstitial } from './ngrokDetect';
 import { clearTunnelBlocked, reportTunnelBlocked } from '../tunnel/gate';
+import { clearAuth, getAuthToken } from '../auth/session';
 
 // Empty = same-origin (Vite proxies /v1 → diary-api). Set VITE_API_URL for a remote API host.
 const API_URL = import.meta.env.VITE_API_URL ?? '';
@@ -51,20 +53,34 @@ function throwIfNgrokInterstitial(body: string, contentType: string | null): voi
   throw new NgrokInterstitialError();
 }
 
+type AuthResponse = {
+  token: string;
+  user: AuthUser;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+  const timeoutId =
+    typeof window !== 'undefined'
+      ? window.setTimeout(() => controller.abort(), 15000)
+      : setTimeout(() => controller.abort(), 15000);
   let res: Response;
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    // Bypasses free-ngrok warning HTML on XHR/fetch (not on full page loads).
+    'ngrok-skip-browser-warning': 'true',
+    ...((init?.headers as Record<string, string> | undefined) ?? {}),
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   try {
     res = await fetch(`${API_URL}${path}`, {
       ...init,
       signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        // Bypasses free-ngrok warning HTML on XHR/fetch (not on full page loads).
-        'ngrok-skip-browser-warning': 'true',
-        ...init?.headers,
-      },
+      headers,
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
@@ -72,7 +88,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(0, 'Нет связи с API. Проверь Wi‑Fi и что diary-api запущен.');
   } finally {
-    window.clearTimeout(timeoutId);
+    typeof window !== 'undefined'
+      ? window.clearTimeout(timeoutId)
+      : clearTimeout(timeoutId);
   }
 
   if (res.status === 204) {
@@ -85,6 +103,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   throwIfNgrokInterstitial(raw, contentType);
 
   if (!res.ok) {
+    if (res.status === 401) {
+      clearAuth();
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.assign('/login');
+      }
+    }
     let message = res.statusText || `HTTP ${res.status}`;
     try {
       const body = JSON.parse(raw) as { error?: string };
@@ -106,6 +130,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  register: (body: { email: string; password: string }) =>
+    request<AuthResponse>('/v1/auth/register', { method: 'POST', body: JSON.stringify(body) }),
+  login: (body: { email: string; password: string }) =>
+    request<AuthResponse>('/v1/auth/login', { method: 'POST', body: JSON.stringify(body) }),
+  logout: () => request<void>('/v1/auth/logout', { method: 'POST', body: '{}' }),
+  me: () => request<AuthUser>('/v1/auth/me'),
+  changePassword: (body: { currentPassword: string; newPassword: string }) =>
+    request<void>('/v1/auth/password', { method: 'PUT', body: JSON.stringify(body) }),
+
   listExercises: () => request<Exercise[]>('/v1/exercises'),
   getExercise: (id: string) => request<Exercise>(`/v1/exercises/${id}`),
   createExercise: (body: CreateExerciseBody) =>

@@ -9,6 +9,12 @@ export function More(_props: RoutableProps) {
 
       <ul class="list">
         <li>
+          <a href="/settings" class="list-item">
+            <span class="list-item__title">Аккаунт</span>
+            <span class="list-item__meta">Email, пароль, выход</span>
+          </a>
+        </li>
+        <li>
           <a href="/cycles" class="list-item">
             <span class="list-item__title">Циклы</span>
             <span class="list-item__meta">Дорожки тренировок и шаги</span>

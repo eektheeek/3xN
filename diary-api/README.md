@@ -17,6 +17,44 @@ Defaults:
 | `DIARY_DB` | `data/diary.db` | SQLite file path |
 | `DIARY_MIGRATIONS` | `migrations` | SQL migrations directory |
 | `DIARY_ADDR` | `:8080` | Listen address |
+| `DIARY_BOOTSTRAP_PASSWORD` | (required on first boot) | Password for legacy owner `larionov.eek@gmail.com` |
+
+First start after auth migration creates that owner and assigns existing rows to them. Set the password in the environment; **do not commit it**.
+
+```bash
+DIARY_BOOTSTRAP_PASSWORD='your-password' go run ./cmd/server
+```
+
+## Auth
+
+Email + password. Session is an opaque Bearer token (30 days).
+
+```bash
+# Register
+curl -s -X POST http://localhost:8080/v1/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"secret123"}'
+
+# Login
+TOKEN=$(curl -s -X POST http://localhost:8080/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"secret123"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')
+
+# Me
+curl -s http://localhost:8080/v1/auth/me -H "Authorization: Bearer $TOKEN"
+
+# Change password
+curl -s -X PUT http://localhost:8080/v1/auth/password \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"currentPassword":"secret123","newPassword":"newpass99"}'
+
+# Logout
+curl -s -X POST http://localhost:8080/v1/auth/logout \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+All other `/v1/*` routes require `Authorization: Bearer <token>`. Add `-H "Authorization: Bearer $TOKEN"` to the curl examples below.
 
 ## Health check
 
@@ -34,6 +72,7 @@ Kinds: `reps` (default) or `hold`. Target fields: `sets`, `reps`, `holdSec`, `we
 # Create exercise (reps)
 curl -s -X POST http://localhost:8080/v1/exercises \
   -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"name":"Wide grip pull-up","muscleGroup":"back","kind":"reps","supportsAssist":true}'
 
 # Create hold exercise

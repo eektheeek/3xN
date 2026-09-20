@@ -33,7 +33,7 @@ func (a *API) CreateIntervalProtocol(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := a.repo.CreateIntervalProtocol(repository.CreateIntervalProtocolInput{
+	p, err := a.repo.CreateIntervalProtocol(userIDFromRequest(r), repository.CreateIntervalProtocolInput{
 		Name:        req.Name,
 		PrepareSec:  req.PrepareSec,
 		WorkSec:     req.WorkSec,
@@ -49,7 +49,7 @@ func (a *API) CreateIntervalProtocol(w http.ResponseWriter, r *http.Request) {
 
 // ListIntervalProtocols handles GET /v1/interval-protocols.
 func (a *API) ListIntervalProtocols(w http.ResponseWriter, r *http.Request) {
-	list, err := a.repo.ListIntervalProtocols()
+	list, err := a.repo.ListIntervalProtocols(userIDFromRequest(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list interval protocols")
 		return
@@ -64,7 +64,7 @@ func (a *API) GetIntervalProtocol(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "id is required")
 		return
 	}
-	p, err := a.repo.GetIntervalProtocol(id)
+	p, err := a.repo.GetIntervalProtocol(userIDFromRequest(r), id)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "interval protocol not found")
 		return
@@ -98,7 +98,7 @@ func (a *API) UpdateIntervalProtocol(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := a.repo.UpdateIntervalProtocol(id, repository.CreateIntervalProtocolInput{
+	p, err := a.repo.UpdateIntervalProtocol(userIDFromRequest(r), id, repository.CreateIntervalProtocolInput{
 		Name:        req.Name,
 		PrepareSec:  req.PrepareSec,
 		WorkSec:     req.WorkSec,
@@ -123,7 +123,7 @@ func (a *API) DeleteIntervalProtocol(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "id is required")
 		return
 	}
-	err := a.repo.DeleteIntervalProtocol(id)
+	err := a.repo.DeleteIntervalProtocol(userIDFromRequest(r), id)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "interval protocol not found")
 		return

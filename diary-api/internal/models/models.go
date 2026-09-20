@@ -1,5 +1,12 @@
 package models
 
+// User is the public account projection (never includes password hash).
+type User struct {
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	CreatedAt string `json:"createdAt"`
+}
+
 // Exercise kinds (catalog).
 const (
 	ExerciseKindReps = "reps"

@@ -1,0 +1,17 @@
+my3xn.duckdns.org {
+	encode gzip
+
+	handle /v1/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle /healthz {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle {
+		root * /opt/3xn/web
+		try_files {path} /index.html
+		file_server
+	}
+}

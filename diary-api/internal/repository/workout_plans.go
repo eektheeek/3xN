@@ -16,8 +16,8 @@ type CreateWorkoutPlanInput struct {
 	ExerciseIDs []string
 }
 
-// CreateWorkoutPlan stores a named plan with ordered exercises.
-func (r *Repository) CreateWorkoutPlan(in CreateWorkoutPlanInput) (models.WorkoutPlan, error) {
+// CreateWorkoutPlan stores a named plan with ordered exercises for the owner.
+func (r *Repository) CreateWorkoutPlan(userID string, in CreateWorkoutPlanInput) (models.WorkoutPlan, error) {
 	if in.Name == "" {
 		return models.WorkoutPlan{}, fmt.Errorf("name is required")
 	}
@@ -38,8 +38,8 @@ func (r *Repository) CreateWorkoutPlan(in CreateWorkoutPlanInput) (models.Workou
 	}
 
 	_, err = tx.Exec(
-		`INSERT INTO workout_plans (id, name, created_at) VALUES (?, ?, ?)`,
-		plan.ID, plan.Name, plan.CreatedAt,
+		`INSERT INTO workout_plans (id, name, created_at, user_id) VALUES (?, ?, ?, ?)`,
+		plan.ID, plan.Name, plan.CreatedAt, userID,
 	)
 	if err != nil {
 		return models.WorkoutPlan{}, fmt.Errorf("insert plan: %w", err)
@@ -47,7 +47,7 @@ func (r *Repository) CreateWorkoutPlan(in CreateWorkoutPlanInput) (models.Workou
 
 	for i, exID := range in.ExerciseIDs {
 		var exists int
-		err := tx.QueryRow(`SELECT 1 FROM exercises WHERE id = ?`, exID).Scan(&exists)
+		err := tx.QueryRow(`SELECT 1 FROM exercises WHERE id = ? AND user_id = ?`, exID, userID).Scan(&exists)
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.WorkoutPlan{}, fmt.Errorf("exercise %s: %w", exID, ErrNotFound)
 		}
@@ -68,13 +68,14 @@ func (r *Repository) CreateWorkoutPlan(in CreateWorkoutPlanInput) (models.Workou
 	if err := tx.Commit(); err != nil {
 		return models.WorkoutPlan{}, fmt.Errorf("commit: %w", err)
 	}
-	return r.GetWorkoutPlan(plan.ID)
+	return r.GetWorkoutPlan(userID, plan.ID)
 }
 
-// ListWorkoutPlans returns all saved templates with exercise preview.
-func (r *Repository) ListWorkoutPlans() ([]models.WorkoutPlan, error) {
+// ListWorkoutPlans returns the owner's saved templates with exercise preview.
+func (r *Repository) ListWorkoutPlans(userID string) ([]models.WorkoutPlan, error) {
 	rows, err := r.db.Query(
-		`SELECT id, name, created_at FROM workout_plans ORDER BY created_at DESC`,
+		`SELECT id, name, created_at FROM workout_plans WHERE user_id = ? ORDER BY created_at DESC`,
+		userID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list plans: %w", err)
@@ -103,11 +104,11 @@ func (r *Repository) ListWorkoutPlans() ([]models.WorkoutPlan, error) {
 	return out, nil
 }
 
-// GetWorkoutPlan returns one plan with exercises.
-func (r *Repository) GetWorkoutPlan(id string) (models.WorkoutPlan, error) {
+// GetWorkoutPlan returns one owned plan with exercises.
+func (r *Repository) GetWorkoutPlan(userID, id string) (models.WorkoutPlan, error) {
 	var p models.WorkoutPlan
 	err := r.db.QueryRow(
-		`SELECT id, name, created_at FROM workout_plans WHERE id = ?`, id,
+		`SELECT id, name, created_at FROM workout_plans WHERE id = ? AND user_id = ?`, id, userID,
 	).Scan(&p.ID, &p.Name, &p.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.WorkoutPlan{}, ErrNotFound
@@ -123,6 +124,7 @@ func (r *Repository) GetWorkoutPlan(id string) (models.WorkoutPlan, error) {
 	return p, nil
 }
 
+// listPlanExercises loads plan rows; callers must verify plan ownership first.
 func (r *Repository) listPlanExercises(planID string) ([]models.WorkoutPlanExercise, error) {
 	rows, err := r.db.Query(
 		`SELECT wpe.id, wpe.workout_plan_id, wpe.exercise_id, wpe.position, e.name

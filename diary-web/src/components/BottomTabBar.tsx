@@ -66,7 +66,8 @@ export function shouldShowTabBar(path: string): boolean {
     p === '/stats' ||
     p === '/more' ||
     p === '/cycles' ||
-    p === '/protocols'
+    p === '/protocols' ||
+    p === '/settings'
   );
 }
 
@@ -74,7 +75,7 @@ export function activeTabForPath(path: string): TabId {
   const p = path.split('?')[0];
   if (p === '/diary') return 'diary';
   if (p === '/stats') return 'stats';
-  if (p === '/more' || p === '/cycles' || p === '/protocols') return 'more';
+  if (p === '/more' || p === '/cycles' || p === '/protocols' || p === '/settings') return 'more';
   return 'home';
 }
 

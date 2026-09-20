@@ -11,6 +11,8 @@ npm install
 
 By default the app calls `/v1/...` on the **same origin**. Vite proxies those to `http://127.0.0.1:8080` (see `vite.config.ts`). You usually do **not** need `VITE_API_URL` locally.
 
+Login is email + password (`/login`, `/register`). Token lives in `localStorage`; IndexedDB is `diary-offline-<userId>`. Account settings: `/settings`.
+
 Optional `.env` only if the API is on another host (e.g. production):
 
 ```
@@ -29,6 +31,9 @@ cd diary-web && npm run dev
 
 | Route | Purpose |
 |-------|---------|
+| `/login` | Email + password |
+| `/register` | Create account |
+| `/settings` | Email, change password, logout |
 | `/` | Saved workout plans |
 | `/workouts/new` | Build a workout: name + exercises from catalog or new ones |
 | `/workouts/:id` | Plan contents → **Start** |

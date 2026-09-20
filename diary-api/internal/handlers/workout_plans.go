@@ -30,7 +30,7 @@ func (a *API) CreateWorkoutPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	plan, err := a.repo.CreateWorkoutPlan(repository.CreateWorkoutPlanInput{
+	plan, err := a.repo.CreateWorkoutPlan(userIDFromRequest(r), repository.CreateWorkoutPlanInput{
 		Name:        req.Name,
 		ExerciseIDs: req.ExerciseIDs,
 	})
@@ -47,7 +47,7 @@ func (a *API) CreateWorkoutPlan(w http.ResponseWriter, r *http.Request) {
 
 // ListWorkoutPlans handles GET /v1/workout-plans.
 func (a *API) ListWorkoutPlans(w http.ResponseWriter, r *http.Request) {
-	plans, err := a.repo.ListWorkoutPlans()
+	plans, err := a.repo.ListWorkoutPlans(userIDFromRequest(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "не удалось загрузить тренировки")
 		return
@@ -62,7 +62,7 @@ func (a *API) GetWorkoutPlan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "не указан id")
 		return
 	}
-	plan, err := a.repo.GetWorkoutPlan(id)
+	plan, err := a.repo.GetWorkoutPlan(userIDFromRequest(r), id)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "тренировка не найдена")
 		return

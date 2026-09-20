@@ -2,7 +2,6 @@ package repository
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -11,12 +10,12 @@ import (
 )
 
 // GetExerciseStats returns per-session volume history for one exercise.
-func (r *Repository) GetExerciseStats(exerciseID, period string) (models.ExerciseStats, error) {
+func (r *Repository) GetExerciseStats(userID, exerciseID, period string) (models.ExerciseStats, error) {
 	if period != models.StatsPeriod30d && period != models.StatsPeriodAll {
 		return models.ExerciseStats{}, ErrInvalidPeriod
 	}
 
-	ex, err := r.GetExercise(exerciseID)
+	ex, err := r.GetExercise(userID, exerciseID)
 	if err != nil {
 		return models.ExerciseStats{}, err
 	}
@@ -30,8 +29,8 @@ func (r *Repository) GetExerciseStats(exerciseID, period string) (models.Exercis
 		FROM workout_session_exercises wse
 		INNER JOIN workout_sessions ws ON ws.id = wse.workout_session_id
 		INNER JOIN sets s ON s.workout_session_exercise_id = wse.id
-		WHERE wse.exercise_id = ?`
-	args := []any{exerciseID}
+		WHERE wse.exercise_id = ? AND ws.user_id = ?`
+	args := []any{exerciseID, userID}
 
 	if period == models.StatsPeriod30d {
 		since := time.Now().UTC().AddDate(0, 0, -30).Format(time.RFC3339)
@@ -133,6 +132,3 @@ func currentTargetVolume(ex models.Exercise) *int {
 	}
 	return &v
 }
-
-// ErrInvalidPeriod is returned when stats period is not supported.
-var ErrInvalidPeriod = errors.New("invalid stats period")

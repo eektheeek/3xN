@@ -1,6 +1,7 @@
 # 3xN
 
-Training diary product. Product vision: [VISION.md](VISION.md).
+Training diary product. Product vision: [VISION.md](VISION.md).  
+For AI agents: start with [AGENTS.md](AGENTS.md) (project map; do not load the whole repo by default).
 
 Session templates (`workout_plans`) and named **training cycles** (ordered templates + current step, e.g. home vs outdoor) — see vision. Exercise kinds: `reps` and `hold` (v1.1). Recovery windows come later.
 

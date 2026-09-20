@@ -73,7 +73,7 @@ func (a *API) CreateWorkoutSession(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	session, err := a.repo.CreateWorkoutSession(in)
+	session, err := a.repo.CreateWorkoutSession(userIDFromRequest(r), in)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "exercise not found")
 		return
@@ -87,7 +87,7 @@ func (a *API) CreateWorkoutSession(w http.ResponseWriter, r *http.Request) {
 
 // ListWorkoutSessions handles GET /v1/workout-sessions.
 func (a *API) ListWorkoutSessions(w http.ResponseWriter, r *http.Request) {
-	sessions, err := a.repo.ListWorkoutSessions()
+	sessions, err := a.repo.ListWorkoutSessions(userIDFromRequest(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list workout sessions")
 		return
@@ -103,7 +103,7 @@ func (a *API) GetWorkoutSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := a.repo.GetWorkoutSession(id)
+	session, err := a.repo.GetWorkoutSession(userIDFromRequest(r), id)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "workout session not found")
 		return
@@ -135,7 +135,7 @@ func (a *API) StartWorkoutSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, created, err := a.repo.StartWorkoutSession(req.ID, req.PerformedAt, req.IsDeload, req.WorkoutPlanID)
+	session, created, err := a.repo.StartWorkoutSession(userIDFromRequest(r), req.ID, req.PerformedAt, req.IsDeload, req.WorkoutPlanID)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "workout plan not found")
 		return
@@ -179,7 +179,7 @@ func (a *API) FinishWorkoutSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := a.repo.FinishWorkoutSession(id, req.DurationSec, strings.TrimSpace(req.CycleID))
+	session, err := a.repo.FinishWorkoutSession(userIDFromRequest(r), id, req.DurationSec, strings.TrimSpace(req.CycleID))
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "workout session not found")
 		return
@@ -234,7 +234,7 @@ func (a *API) SaveSessionExercise(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	block, err := a.repo.SaveSessionExercise(sessionID, req.Position, exerciseID, sets)
+	block, err := a.repo.SaveSessionExercise(userIDFromRequest(r), sessionID, req.Position, exerciseID, sets)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "workout session or exercise not found")
 		return

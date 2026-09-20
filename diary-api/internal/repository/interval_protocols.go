@@ -19,8 +19,8 @@ type CreateIntervalProtocolInput struct {
 	WarmupExtra bool
 }
 
-// CreateIntervalProtocol stores a reusable interval protocol.
-func (r *Repository) CreateIntervalProtocol(in CreateIntervalProtocolInput) (models.IntervalProtocol, error) {
+// CreateIntervalProtocol stores a reusable interval protocol for the owner.
+func (r *Repository) CreateIntervalProtocol(userID string, in CreateIntervalProtocolInput) (models.IntervalProtocol, error) {
 	if in.Name == "" {
 		return models.IntervalProtocol{}, fmt.Errorf("name is required")
 	}
@@ -45,9 +45,9 @@ func (r *Repository) CreateIntervalProtocol(in CreateIntervalProtocolInput) (mod
 	}
 
 	_, err := r.db.Exec(
-		`INSERT INTO interval_protocols (id, name, work_sec, rest_sec, warmup_extra, created_at, prepare_sec)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		p.ID, p.Name, p.WorkSec, p.RestSec, boolToInt(p.WarmupExtra), p.CreatedAt, p.PrepareSec,
+		`INSERT INTO interval_protocols (id, name, work_sec, rest_sec, warmup_extra, created_at, prepare_sec, user_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		p.ID, p.Name, p.WorkSec, p.RestSec, boolToInt(p.WarmupExtra), p.CreatedAt, p.PrepareSec, userID,
 	)
 	if err != nil {
 		return models.IntervalProtocol{}, fmt.Errorf("insert interval protocol: %w", err)
@@ -55,12 +55,14 @@ func (r *Repository) CreateIntervalProtocol(in CreateIntervalProtocolInput) (mod
 	return p, nil
 }
 
-// ListIntervalProtocols returns all saved protocols, newest first.
-func (r *Repository) ListIntervalProtocols() ([]models.IntervalProtocol, error) {
+// ListIntervalProtocols returns the owner's saved protocols, newest first.
+func (r *Repository) ListIntervalProtocols(userID string) ([]models.IntervalProtocol, error) {
 	rows, err := r.db.Query(
 		`SELECT id, name, work_sec, rest_sec, warmup_extra, created_at, prepare_sec
 		 FROM interval_protocols
+		 WHERE user_id = ?
 		 ORDER BY created_at DESC`,
+		userID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list interval protocols: %w", err)
@@ -84,12 +86,12 @@ func (r *Repository) ListIntervalProtocols() ([]models.IntervalProtocol, error) 
 	return out, nil
 }
 
-// GetIntervalProtocol returns one protocol by id.
-func (r *Repository) GetIntervalProtocol(id string) (models.IntervalProtocol, error) {
+// GetIntervalProtocol returns one owned protocol by id.
+func (r *Repository) GetIntervalProtocol(userID, id string) (models.IntervalProtocol, error) {
 	p, err := scanProtocol(r.db.QueryRow(
 		`SELECT id, name, work_sec, rest_sec, warmup_extra, created_at, prepare_sec
-		 FROM interval_protocols WHERE id = ?`,
-		id,
+		 FROM interval_protocols WHERE id = ? AND user_id = ?`,
+		id, userID,
 	))
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.IntervalProtocol{}, ErrNotFound
@@ -115,8 +117,8 @@ func scanProtocol(row protocolScanner) (models.IntervalProtocol, error) {
 	return p, nil
 }
 
-// UpdateIntervalProtocol updates a saved protocol.
-func (r *Repository) UpdateIntervalProtocol(id string, in CreateIntervalProtocolInput) (models.IntervalProtocol, error) {
+// UpdateIntervalProtocol updates an owned protocol.
+func (r *Repository) UpdateIntervalProtocol(userID, id string, in CreateIntervalProtocolInput) (models.IntervalProtocol, error) {
 	if in.Name == "" {
 		return models.IntervalProtocol{}, fmt.Errorf("name is required")
 	}
@@ -133,8 +135,8 @@ func (r *Repository) UpdateIntervalProtocol(id string, in CreateIntervalProtocol
 	res, err := r.db.Exec(
 		`UPDATE interval_protocols
 		 SET name = ?, work_sec = ?, rest_sec = ?, warmup_extra = ?, prepare_sec = ?
-		 WHERE id = ?`,
-		in.Name, in.WorkSec, in.RestSec, boolToInt(in.WarmupExtra), in.PrepareSec, id,
+		 WHERE id = ? AND user_id = ?`,
+		in.Name, in.WorkSec, in.RestSec, boolToInt(in.WarmupExtra), in.PrepareSec, id, userID,
 	)
 	if err != nil {
 		return models.IntervalProtocol{}, fmt.Errorf("update interval protocol: %w", err)
@@ -146,12 +148,12 @@ func (r *Repository) UpdateIntervalProtocol(id string, in CreateIntervalProtocol
 	if n == 0 {
 		return models.IntervalProtocol{}, ErrNotFound
 	}
-	return r.GetIntervalProtocol(id)
+	return r.GetIntervalProtocol(userID, id)
 }
 
-// DeleteIntervalProtocol removes a protocol (exercises.protocol_id becomes NULL via FK).
-func (r *Repository) DeleteIntervalProtocol(id string) error {
-	res, err := r.db.Exec(`DELETE FROM interval_protocols WHERE id = ?`, id)
+// DeleteIntervalProtocol removes an owned protocol (exercises.protocol_id becomes NULL via FK).
+func (r *Repository) DeleteIntervalProtocol(userID, id string) error {
+	res, err := r.db.Exec(`DELETE FROM interval_protocols WHERE id = ? AND user_id = ?`, id, userID)
 	if err != nil {
 		return fmt.Errorf("delete interval protocol: %w", err)
 	}

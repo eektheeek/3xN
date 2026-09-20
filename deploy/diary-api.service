@@ -1,0 +1,16 @@
+[Unit]
+Description=3xN diary API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/3xn/api
+Environment=DIARY_DB=/var/lib/3xn/diary.db
+Environment=DIARY_MIGRATIONS=/opt/3xn/api/migrations
+Environment=DIARY_ADDR=127.0.0.1:8080
+ExecStart=/opt/3xn/api/diary-api
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -17,14 +17,14 @@ func normalizeExerciseKind(kind string) string {
 	return models.ExerciseKindReps
 }
 
-// CreateExercise inserts a new exercise into the catalog.
-func (r *Repository) CreateExercise(name, muscleGroup, kind string, supportsAssist bool, protocolID string) (models.Exercise, error) {
+// CreateExercise inserts a new exercise into the owner's catalog.
+func (r *Repository) CreateExercise(userID, name, muscleGroup, kind string, supportsAssist bool, protocolID string) (models.Exercise, error) {
 	kind = normalizeExerciseKind(kind)
 	if kind == models.ExerciseKindHold {
 		supportsAssist = false
 	}
 	if protocolID != "" {
-		if _, err := r.GetIntervalProtocol(protocolID); err != nil {
+		if _, err := r.GetIntervalProtocol(userID, protocolID); err != nil {
 			return models.Exercise{}, err
 		}
 	}
@@ -45,19 +45,19 @@ func (r *Repository) CreateExercise(name, muscleGroup, kind string, supportsAssi
 	}
 
 	_, err := r.db.Exec(
-		`INSERT INTO exercises (id, name, muscle_group, kind, supports_assist, created_at, protocol_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		ex.ID, ex.Name, ex.MuscleGroup, ex.Kind, boolToInt(ex.SupportsAssist), ex.CreatedAt, protocolArg,
+		`INSERT INTO exercises (id, name, muscle_group, kind, supports_assist, created_at, protocol_id, user_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		ex.ID, ex.Name, ex.MuscleGroup, ex.Kind, boolToInt(ex.SupportsAssist), ex.CreatedAt, protocolArg, userID,
 	)
 	if err != nil {
 		return models.Exercise{}, fmt.Errorf("insert exercise: %w", err)
 	}
-	return r.GetExercise(ex.ID)
+	return r.GetExercise(userID, ex.ID)
 }
 
-// UpdateExercise updates catalog fields for an existing exercise.
+// UpdateExercise updates catalog fields for an existing exercise owned by userID.
 // protocolID empty string clears the attachment. When supportsAssist is turned off, assistKg is cleared.
-func (r *Repository) UpdateExercise(id, name, muscleGroup, kind string, supportsAssist bool, protocolID string) (models.Exercise, error) {
+func (r *Repository) UpdateExercise(userID, id, name, muscleGroup, kind string, supportsAssist bool, protocolID string) (models.Exercise, error) {
 	if name == "" {
 		return models.Exercise{}, fmt.Errorf("name is required")
 	}
@@ -66,7 +66,7 @@ func (r *Repository) UpdateExercise(id, name, muscleGroup, kind string, supports
 		supportsAssist = false
 	}
 	if protocolID != "" {
-		if _, err := r.GetIntervalProtocol(protocolID); err != nil {
+		if _, err := r.GetIntervalProtocol(userID, protocolID); err != nil {
 			return models.Exercise{}, err
 		}
 	}
@@ -79,8 +79,8 @@ func (r *Repository) UpdateExercise(id, name, muscleGroup, kind string, supports
 	res, err := r.db.Exec(
 		`UPDATE exercises
 		 SET name = ?, muscle_group = ?, kind = ?, supports_assist = ?, protocol_id = ?
-		 WHERE id = ?`,
-		name, muscleGroup, kind, boolToInt(supportsAssist), protocolArg, id,
+		 WHERE id = ? AND user_id = ?`,
+		name, muscleGroup, kind, boolToInt(supportsAssist), protocolArg, id, userID,
 	)
 	if err != nil {
 		return models.Exercise{}, fmt.Errorf("update exercise: %w", err)
@@ -93,6 +93,7 @@ func (r *Repository) UpdateExercise(id, name, muscleGroup, kind string, supports
 		return models.Exercise{}, ErrNotFound
 	}
 
+	// Ownership is verified above, so target rows can be addressed by exercise_id alone.
 	if !supportsAssist {
 		if _, err := r.db.Exec(
 			`UPDATE exercise_targets SET assist_kg = 0 WHERE exercise_id = ?`,
@@ -110,7 +111,7 @@ func (r *Repository) UpdateExercise(id, name, muscleGroup, kind string, supports
 		}
 	}
 
-	return r.GetExercise(id)
+	return r.GetExercise(userID, id)
 }
 
 const exerciseSelectSQL = `
@@ -121,9 +122,12 @@ FROM exercises e
 LEFT JOIN exercise_targets t ON t.exercise_id = e.id
 LEFT JOIN interval_protocols p ON p.id = e.protocol_id`
 
-// ListExercises returns all exercises with targets and protocols when present.
-func (r *Repository) ListExercises() ([]models.Exercise, error) {
-	rows, err := r.db.Query(exerciseSelectSQL + ` ORDER BY e.created_at ASC`)
+// ListExercises returns the owner's exercises with targets and protocols when present.
+func (r *Repository) ListExercises(userID string) ([]models.Exercise, error) {
+	rows, err := r.db.Query(
+		exerciseSelectSQL+` WHERE e.user_id = ? ORDER BY e.created_at ASC`,
+		userID,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("list exercises: %w", err)
 	}
@@ -146,9 +150,11 @@ func (r *Repository) ListExercises() ([]models.Exercise, error) {
 	return out, nil
 }
 
-// GetExercise returns one exercise and its target/protocol when present.
-func (r *Repository) GetExercise(id string) (models.Exercise, error) {
-	ex, err := scanExercise(r.db.QueryRow(exerciseSelectSQL+` WHERE e.id = ?`, id))
+// GetExercise returns one owned exercise and its target/protocol when present.
+func (r *Repository) GetExercise(userID, id string) (models.Exercise, error) {
+	ex, err := scanExercise(r.db.QueryRow(
+		exerciseSelectSQL+` WHERE e.id = ? AND e.user_id = ?`, id, userID,
+	))
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.Exercise{}, ErrNotFound
 	}
@@ -209,9 +215,9 @@ func scanExercise(row scannable) (models.Exercise, error) {
 	return ex, nil
 }
 
-// SetTarget upserts the current goal for an exercise.
-func (r *Repository) SetTarget(exerciseID string, sets, reps, holdSec int, weightKg, assistKg float64) (models.ExerciseTarget, error) {
-	ex, err := r.GetExercise(exerciseID)
+// SetTarget upserts the current goal for an owned exercise.
+func (r *Repository) SetTarget(userID, exerciseID string, sets, reps, holdSec int, weightKg, assistKg float64) (models.ExerciseTarget, error) {
+	ex, err := r.GetExercise(userID, exerciseID)
 	if err != nil {
 		return models.ExerciseTarget{}, err
 	}

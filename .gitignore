@@ -16,3 +16,7 @@ diary-api/data/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Deploy secrets / host config
+deploy/env
+.deploy-build/

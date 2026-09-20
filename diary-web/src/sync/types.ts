@@ -87,7 +87,8 @@ export interface CatalogCache {
 }
 
 /** IndexedDB schema version and store names (implemented in stage 1). */
-export const SYNC_DB_NAME = 'diary-offline';
+export const SYNC_DB_NAME_PREFIX = 'diary-offline';
+export const SYNC_DB_NAME = SYNC_DB_NAME_PREFIX;
 export const SYNC_DB_VERSION = 1;
 
 export const SYNC_STORE = {
